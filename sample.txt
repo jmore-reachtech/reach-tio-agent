@@ -1,0 +1,6 @@
+powerOn
+setMode=heat
+setHeater=78
+blah
+setAcMode=on
+
