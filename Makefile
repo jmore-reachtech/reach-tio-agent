@@ -1,25 +1,38 @@
-CC=gcc
-CFLAGS=-c -Wall
-LDFLAGS=-lpthread
+package = tio-agent
+version = 1.0.0
+tarname = $(package)
+distdir = $(tarname)-$(version)
 
-SOURCES=die_with_message.c \
-        read_line.c \
-        translate_agent.c \
-        translate_parser.c \
-        translate_sio.c \
-        translate_socket.c
+all clean tio-agent:
+	cd src && $(MAKE) $@
 
-OBJECTS=$(SOURCES:.c=.o)
-EXECUTABLE=tio-agent
+dist: $(distdir).tar.gz
 
-all: $(SOURCES) $(EXECUTABLE)
+$(distdir).tar.gz: $(distdir)
+	tar chof - $(distdir) | gzip -9 -c > $@
+	rm -rf $(distdir)
 
-$(EXECUTABLE): $(OBJECTS)
-	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
-
-.c.o: $(CC) $(CFLAGS) $(DEBUG) $< -o $@
-
-clean:
-	rm -rf *.o tio-agent
-
-
+$(distdir): FORCE
+	mkdir -p $(distdir)/src
+	cp Makefile $(distdir)
+	cp src/Makefile $(distdir)/src
+	cp src/die_with_message.c $(distdir)/src
+	cp src/read_line.c $(distdir)/src
+	cp src/read_line.h $(distdir)/src
+	cp src/sample.txt $(distdir)/src
+	cp src/tcp_client.c $(distdir)/src
+	cp src/tcp_hdr.h $(distdir)/src
+	cp src/translate_agent.c $(distdir)/src
+	cp src/translate_agent.h $(distdir)/src
+	cp src/translate_parser.c $(distdir)/src
+	cp src/translate_parser.h $(distdir)/src
+	cp src/translate_sio.c $(distdir)/src
+	cp src/translate_socket.c $(distdir)/src
+	cp src/unix_client.c $(distdir)/src
+	cp src/unix_server.c $(distdir)/src
+        
+FORCE:
+	-rm $(distdir).tar.gz > /dev/null 2>&1
+	-rm -rf $(distdir) > /dev/null 2>&1
+        
+.PHONY: FORCE all clean dist
