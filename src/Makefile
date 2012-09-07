@@ -13,7 +13,7 @@ LDFLAGS=-lpthread
 all: tio-agent
 
 tio-agent: $(sources)
-	gcc $(LDFLAGS) -g -O0 -o $@ $(sources)
+	$(CC) $(LDFLAGS) -g -O0 -o $@ $(sources)
 
 clean:
 	-rm tio-agent
