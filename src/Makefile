@@ -1,21 +1,30 @@
 sources = die_with_message.c \
 	read_line.c \
-	read_line.h \
 	translate_agent.c \
-	translate_agent.h \
 	translate_parser.c \
-	translate_parser.h \
 	translate_sio.c \
 	translate_socket.c 
 
-LDFLAGS=-lpthread
+headers = read_line.h \
+	tcp_hdr.h \
+	translate_agent.h \
+	translate_parser.h
+
+LDFLAGS=-pthread
+
+ifeq ($(DEBUG_DEF),1)
+	DEBUG = -g -O0 -DDEBUG
+else
+	DEBUG = -O2
+endif
+
 
 all: tio-agent
 
-tio-agent: $(sources)
-	$(CC) $(LDFLAGS) -g -O0 -o $@ $(sources)
+tio-agent: $(sources) $(headers)
+	$(CC) $(LDFLAGS) $(DEBUG) -o $@ $(sources)
 
 clean:
-	-rm tio-agent
+	$(RM) tio-agent
 
 .PHONY: all clean

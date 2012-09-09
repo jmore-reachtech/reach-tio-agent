@@ -9,8 +9,8 @@
 #define TRANSLATE_AGENT_H_
 
 
-char transFilePath[ 200 ];
-char socketPath[ 200 ];
+char transFilePath[200];
+char socketPath[200];
 
 #ifdef TRUE
 #undef TRUE

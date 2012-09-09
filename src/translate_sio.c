@@ -27,85 +27,86 @@
 static void *translateSioReader(void *arg);
 
 static int sioSocketFd;
-pthread_t	sioSocketReader_thread;
+pthread_t sioSocketReader_thread;
 
 int translateSioInit(void)
 {
-	struct sockaddr_in addr;
+    struct sockaddr_in addr;
 
-	sioSocketFd = socket(AF_INET, SOCK_STREAM, 0);      /* Create server socket */
-	if (sioSocketFd == -1)
-		dieWithSystemMessage("socket()");
+    sioSocketFd = socket(AF_INET, SOCK_STREAM, 0);      /* Create server socket */
+    if (sioSocketFd == -1)
+        dieWithSystemMessage("socket()");
 
-	/* Construct server address, and make the connection */
-	 memset(&addr, 0, sizeof(addr));
-	 addr.sin_family = AF_INET;
-	 addr.sin_addr.s_addr = inet_addr(IO_AGENT_HOST);
-	 addr.sin_port = htons(SIO_AGENT_PORT);
+    /* Construct server address, and make the connection */
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(IO_AGENT_HOST);
+    addr.sin_port = htons(SIO_AGENT_PORT);
 
-	if (connect(sioSocketFd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
-		dieWithSystemMessage("sio connect() failed");
-	}
+    if (connect(sioSocketFd, (struct sockaddr *)&addr, sizeof(struct sockaddr)) == -1) {
+        dieWithSystemMessage("sio connect() failed");
+    }
 
-	/* send ping */
-	translateSioWriter("ping\n");
+    /* send ping */
+    translateSioWriter("ping\n");
 
-	pthread_create( &sioSocketReader_thread, NULL, translateSioReader, NULL );
+    pthread_create(&sioSocketReader_thread, NULL, translateSioReader, NULL);
 
-	return (0);
+    return 0;
 }
 
 static void *translateSioReader(void *arg)
 {
-	ssize_t numRead;
-	int msgRead;
-	char buf[READ_BUF_SIZE];
-	char msg[READ_BUF_SIZE];
+    ssize_t numRead;
+    int msgRead;
+    char buf[READ_BUF_SIZE];
+    char msg[READ_BUF_SIZE];
 
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
-	msgRead = 0;
-	for(;;) {
-		while ((numRead = readLine(sioSocketFd, buf, READ_BUF_SIZE)) > 0) {
-			/* zero out message buffer */
-			memset(&msg,0,sizeof(&msg));
-			traslate_micro_msg(buf,msg);
+    msgRead = 0;
+    for (;;) {
+        while ((numRead = readLine(sioSocketFd, buf, READ_BUF_SIZE)) > 0) {
+            /* zero out message buffer */
+            memset(&msg, 0, sizeof(&msg));
+            translate_micro_msg(buf, msg);
 
-			/* if we have a message send */
-			if(msg[0] != '\0') {
-				printf("sending message to gui: %s\n",msg);
-				translateSocketSendToClient(msg);
-			}
-			msgRead++;
-		}
+            /* if we have a message send */
+            if (msg[0] != '\0') {
+                printf("sending message to gui: %s\n",msg);
+                translateSocketSendToClient(msg);
+            }
+            msgRead++;
+        }
 
-		if (numRead == -1)
-			dieWithSystemMessage("read()");
-	}
+        if (numRead == -1) {
+            dieWithSystemMessage("read()");
+        }
+    }
 
-	if (close(sioSocketFd) == -1)
-		dieWithSystemMessage("close()");
-		
-	return NULL;
+    if (close(sioSocketFd) == -1) {
+        dieWithSystemMessage("close()");
+    }
+
+    return NULL;
 }
 
 void translateSioShutdown()
 {
-	pthread_cancel( sioSocketReader_thread );
+    pthread_cancel(sioSocketReader_thread);
 
     close(sioSocketFd);
-
 }
 
 
 int translateSioWriter(char* buf)
 {
-	int cnt = strlen(buf);
+    int cnt = strlen(buf);
 
-	if (send(sioSocketFd, buf, cnt, 0) != cnt ) {
-		printf( "socket_send_to_client(): send() failed, %d\n", sioSocketFd );
-		perror( "what's messed up?" );
-	}
+    if (send(sioSocketFd, buf, cnt, 0) != cnt) {
+        printf("socket_send_to_client(): send() failed, %d\n", sioSocketFd);
+        perror("what's messed up?");
+    }
 
-	return (0);
+    return 0;
 }

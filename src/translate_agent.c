@@ -21,8 +21,8 @@ int	verboseFlag;
 int	localEchoFlag;
 int	daemonFlag;
 int usePort;
-char socketPath[ MAX_PATH_SIZE ];
-char transFilePath[ MAX_PATH_SIZE ];
+char socketPath[MAX_PATH_SIZE ];
+char transFilePath[MAX_PATH_SIZE ];
 
 static	void tioDumpHelp(void);
 static void tioAgentLaunch(int);
@@ -33,14 +33,14 @@ int main(int argc, char** argv)
 	int	c;
 
 	/* default local socket path*/
-	fprintf( stderr, "tio_agent: Setting device to default /tmp/tioSocket\n" );
-	fprintf( stderr, "\tUse -t devname to override\n" );
-	strcpy( socketPath, "/tmp/tioSocket" );
+	fprintf(stderr, "tio_agent: Setting device to default /tmp/tioSocket\n");
+	fprintf(stderr, "\tUse -t devname to override\n");
+	strcpy(socketPath, "/tmp/tioSocket");
 
 	/* default translation file path*/
-	fprintf( stderr, "tio_agent: Loading default translation file ./translate.txt\n" );
-	fprintf( stderr, "\tUse -f filepath to override\n" );
-	strcpy( transFilePath, "/application/bin/translate.txt" );
+	fprintf(stderr, "tio_agent: Loading default translation file ./translate.txt\n");
+	fprintf(stderr, "\tUse -f filepath to override\n" );
+	strcpy(transFilePath, "/application/bin/translate.txt");
 
 	/*  Options:
 	 *
@@ -53,27 +53,33 @@ int main(int argc, char** argv)
 	 *   -h|?          # Dump Help
 	 */
 	opterr = 0;
-	while( (c = getopt( argc, argv, "fplvdt:h?" )) != EOF ) {
-		switch( c ) {
-			case 'v':
-				verboseFlag = 1;break;
-			case 'l':
-				localEchoFlag = 1;break;
-			case 't':
-				fprintf( stderr, "Override socket to %s\n", optarg);
-				strcpy( socketPath, optarg );break;
-			case 'f':
-				fprintf( stderr, "Override translation file to %s\n", optarg);
-				strcpy( transFilePath, optarg );break;
-			case 'd':
-				daemonFlag = 1; break;
-			case 'p':
-				usePort = 1;break;
-			case '?':
-			case 'h':
-			default:
-				tioDumpHelp();
-			exit( 1 );
+	while((c = getopt(argc, argv, "fplvdt:h?" )) != EOF) {
+		switch(c) {
+        case 'v':
+            verboseFlag = 1;
+            break;
+        case 'l':
+            localEchoFlag = 1;
+            break;
+        case 't':
+            fprintf(stderr, "Override socket to %s\n", optarg);
+            strcpy(socketPath, optarg);
+            break;
+        case 'f':
+            fprintf(stderr, "Override translation file to %s\n", optarg);
+            strcpy(transFilePath, optarg);
+            break;
+        case 'd':
+            daemonFlag = 1;
+            break;
+        case 'p':
+            usePort = 1;
+            break;
+        case '?':
+        case 'h':
+        default:
+            tioDumpHelp();
+			exit(1);
 		}
 	}
 
@@ -85,11 +91,10 @@ int main(int argc, char** argv)
 		tioAgentLaunch(0);
 	}
 
-	exit (EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
-static void *tioHelpStrings[] = {
-
+static const char *tioHelpStrings[] = {
     " ",
     "usage: tio_agent [options]",
     " ",
@@ -102,13 +107,13 @@ static void *tioHelpStrings[] = {
     " "
 };
 
-static 	void tioDumpHelp()
+static void tioDumpHelp()
 {
 	int	i = 0;
 
-	while( tioHelpStrings[ i ] )
-		fprintf( stderr, "%s\n", tioHelpStrings[ i++ ] );
-
+	while (tioHelpStrings[i]) {
+		fprintf(stderr, "%s\n", tioHelpStrings[i++]);
+    }
 }
 
 static void tioAgentLaunch(int port)
@@ -119,9 +124,8 @@ static void tioAgentLaunch(int port)
 	}
 	*/
 
-	/*  Should never return; just wait for connections and process.
-	*/
-	translateSocketInit(port, socketPath );
+	/*  Should never return; just wait for connections and process.	*/
+	translateSocketInit(port, socketPath);
 }
 
 static void loadTranslateMap(char* filePath)
@@ -135,7 +139,7 @@ static void loadTranslateMap(char* filePath)
 		printf("error opening file %s\n", filePath);
 		return;
 	}
-	
+
 	/* reset the queue */
 	translate_reset_mapping();
 
