@@ -21,8 +21,8 @@ int	verboseFlag;
 int	localEchoFlag;
 int	daemonFlag;
 int usePort;
-char socketPath[MAX_PATH_SIZE ];
-char transFilePath[MAX_PATH_SIZE ];
+char socketPath[MAX_PATH_SIZE];
+char transFilePath[MAX_PATH_SIZE];
 
 static	void tioDumpHelp(void);
 static void tioAgentLaunch(int);
@@ -53,7 +53,7 @@ int main(int argc, char** argv)
 	 *   -h|?          # Dump Help
 	 */
 	opterr = 0;
-	while((c = getopt(argc, argv, "fplvdt:h?" )) != EOF) {
+	while((c = getopt(argc, argv, "f:plvdt:h?" )) != EOF) {
 		switch(c) {
         case 'v':
             verboseFlag = 1;
