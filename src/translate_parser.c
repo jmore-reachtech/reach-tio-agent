@@ -112,7 +112,7 @@ void translate_add_mapping(const char *msg)
         /* look at the setter to see if it is a format specifier */
         if (setter[1] == '%') {
             /* we have a setter so remove the specifier from the key */
-            safe_strncpy(trans.key, key, setter - key);
+            safe_strncpy(trans.key, key, setter - key + 2);
             switch (setter[2]) {
             case 's':
                 trans.fmt_spec = SPEC_STRING; break;
@@ -130,7 +130,7 @@ void translate_add_mapping(const char *msg)
     }
 
     /* copy the message over */
-    snprintf(trans.msg, strlen(trans.msg), "%s\n", message);
+    snprintf(trans.msg, sizeof(trans.msg), "%s\n", message);
 
     /* add message to queue*/
     switch (*origin) {
