@@ -22,7 +22,6 @@
 
 #define BUF_SIZE 128
 
-void dieWithUserMessage(const char *msg, const char *detail);
 void dieWithSystemMessage(const char *msg);
 
 #endif /* TCPECHO_H_ */

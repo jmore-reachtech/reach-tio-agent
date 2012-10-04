@@ -38,9 +38,10 @@ struct translate_queue {
     struct translate_msg micro_map[MAX_MSG_MAP_SIZE];
 };
 
+void loadTranslateMap(const char*);
 void translate_add_mapping(const char*);
-void translate_gui_msg(const char*, char*);
-void translate_micro_msg(const char*, char*);
+void translate_gui_msg(const char*, char*, size_t);
+void translate_micro_msg(const char*, char*, size_t);
 void translate_reset_mapping(void);
 
 #endif /* TRANSLATE_PARSER_H_ */

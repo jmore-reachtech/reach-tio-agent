@@ -4,6 +4,7 @@
  *  Created on: Oct 7, 2011
  *      Author: jhorn
  */
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* Commonly used string-handling functions */
@@ -19,9 +20,35 @@ static struct translate_queue queue;
 static struct translate_msg gui_def;
 static struct translate_msg micro_def;
 
-static void translate_msg(const char *, char *, int, struct translate_msg *,
-    struct translate_msg);
-static void safe_strncpy(char *dest, const char *src, size_t n);
+static void translate_msg(const char *, char *, size_t, int,
+    struct translate_msg *, struct translate_msg);
+
+void loadTranslateMap(const char* filePath)
+{
+	int inputFd;
+	int numRead = 0;
+	char buf[MAX_LINE_SIZE];
+
+	inputFd = open(filePath, O_RDONLY);
+	if (inputFd == -1) {
+		printf("error opening file %s\n", filePath);
+		return;
+	}
+
+	/* reset the queue */
+	translate_reset_mapping();
+
+	while ((numRead = readLine(inputFd, buf, MAX_LINE_SIZE)) > 0) {
+		translate_add_mapping(buf);
+	}
+
+	if (numRead == -1)
+		dieWithSystemMessage("read()");
+
+	if (close(inputFd) == -1) {
+		dieWithSystemMessage("error closing file");
+	}
+}
 
 void translate_add_mapping(const char *msg)
 {
@@ -155,8 +182,8 @@ void translate_add_mapping(const char *msg)
     }
 }
 
-static void translate_msg(const char* msg, char* buf, int index,
-    struct translate_msg* map, struct translate_msg def)
+static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
+    int index, struct translate_msg* map, struct translate_msg def)
 {
     int i;
     //const int len = strlen(msg);
@@ -166,15 +193,15 @@ static void translate_msg(const char* msg, char* buf, int index,
     char message[MAX_LINE_SIZE];
     char tmp[MAX_LINE_SIZE];
 
-    /* if we don't have any mappings bail */
-    if (index == 0) {
-        strcpy(buf, msg);
+    /* check for empty message */
+    if (inMsg == 0 || *inMsg == '\n' || *inMsg == '\0') {
+        strncpy(outMsg, "\n", outMsgSize);
         return;
     }
 
-    /* check for empty message */
-    if (msg == NULL || *msg == '\n' || *msg == '\0') {
-        strcpy(buf, msg);
+    /* if we don't have any mappings bail */
+    if (index == 0) {
+        safe_strncpy(outMsg, inMsg, outMsgSize);
         return;
     }
 
@@ -182,7 +209,7 @@ static void translate_msg(const char* msg, char* buf, int index,
     memset(message, 0, MAX_LINE_SIZE);
 
     /* make a copy so strtok() can change the contents */
-    safe_strncpy(tmp, msg, sizeof(tmp));
+    safe_strncpy(tmp, inMsg, sizeof(tmp));
 
     /* see if we have a setter */
     setter = strstr(tmp, "=");
@@ -191,7 +218,7 @@ static void translate_msg(const char* msg, char* buf, int index,
         setter = strtok(tmp,"\n");
         safe_strncpy(message, setter, sizeof(message));
     } else {
-        strncpy(message, msg, strlen(msg) - strlen(setter) + 1);
+        strncpy(message, inMsg, strlen(inMsg) - strlen(setter) + 1);
         /* incr pointer to get past the = */
         setter++;
         end_msg = strtok(setter,"\n");
@@ -208,21 +235,21 @@ static void translate_msg(const char* msg, char* buf, int index,
                 switch (map[i].fmt_spec) {
                 case SPEC_INTEGER:
                     value = atoi(end_msg);
-                    sprintf(buf, map[i].msg, value);
+                    sprintf(outMsg, map[i].msg, value);
                     break;
 
                 case SPEC_STRING:
-                    sprintf(buf, map[i].msg, end_msg);
+                    sprintf(outMsg, map[i].msg, end_msg);
                     break;
 
                 case SPEC_NONE:
                 default:
                     /* TODO: can we even get here? */
-                    strcpy(buf, map[i].msg);
+                    strcpy(outMsg, map[i].msg);
                     break;
                 }
             } else {
-                strcpy(buf, map[i].msg);
+                strcpy(outMsg, map[i].msg);
             }
             return;
         }
@@ -232,17 +259,19 @@ static void translate_msg(const char* msg, char* buf, int index,
 #ifdef DEBUG
     printf("sending default message\n");
 #endif
-    sprintf(buf, def.msg, tmp);
+    sprintf(outMsg, def.msg, tmp);
 }
 
-void translate_gui_msg(const char* msg, char* buf)
+void translate_gui_msg(const char* inMsg, char* outMsg, size_t outMsgSize)
 {
-    translate_msg(msg, buf, gui_index, queue.gui_map, gui_def);
+    translate_msg(inMsg, outMsg, outMsgSize, gui_index, queue.gui_map,
+        gui_def);
 }
 
-void translate_micro_msg(const char* msg, char* buf)
+void translate_micro_msg(const char* inMsg, char* outMsg, size_t outMsgSize)
 {
-    translate_msg(msg, buf, micro_index, queue.micro_map, micro_def);
+    translate_msg(inMsg, outMsg, outMsgSize, micro_index, queue.micro_map,
+        micro_def);
 }
 
 void translate_reset_mapping(void)
@@ -251,14 +280,5 @@ void translate_reset_mapping(void)
     gui_index = 0;
     micro_index = 0;
     memset(&queue, 0, sizeof(struct translate_queue));
-}
-
-static void safe_strncpy(char *dest, const char *src, size_t n)
-{
-    /* This function uses strncpy() underneath but ensures that the resulting
-       copy is nul terminated */
-    strncpy(dest, src, n);
-    dest[n - 1] = '\0';  /* if strlen(src) < n, \0 will already be in the right
-                            place but this one shouldn't interfere in any way */
 }
 

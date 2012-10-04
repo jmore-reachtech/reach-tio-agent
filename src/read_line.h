@@ -7,6 +7,8 @@
 
 #include <sys/types.h>
 
-ssize_t readLine(int fd, void *buffer, size_t n);
+ssize_t readLine(int fd, char *buffer, size_t n);
+void safe_strncpy(char *dest, const char *src, size_t n);
+size_t cleanString(char *str, size_t msgLen);
 
 #endif

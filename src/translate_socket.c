@@ -17,104 +17,59 @@
 #include <arpa/inet.h>
 
 #include "translate_agent.h"
-#include "translate_parser.h"
-#include "read_line.h"
 
-static int createUnixSocket(char*);
+static int createUnixSocket(const char*);
 static int createTCPServerSocket(unsigned short);
-static int acceptTCPConnection(int);
-static int readTCPConnection(int);
 
-static int socketFd;
-
-int translateSocketInit(int port, char* socketPath)
+int tioQvSocketInit(unsigned short port, int *addressFamily,
+    const char *socketPath)
 {
-    char msg[MAX_LINE_SIZE];
-    int sockFd, clientSockFd;
-    int numRead;
-
-    /* clear out msg*/
-    memset(&msg[0], 0, sizeof(msg));
-
+    int sockFd = -1;
     if (port == 0) {
-        printf("using local socket\n");
+        if (tioVerboseFlag) {
+            printf("using local socket\n");
+        }
         sockFd = createUnixSocket(socketPath);
-    } else if (port > 0) {
-        sockFd = createTCPServerSocket(port);
-        printf("using tcp socket\n");
+        *addressFamily = AF_UNIX;
     } else {
-        dieWithSystemMessage("bad port: ");
+        sockFd = createTCPServerSocket(port);
+        if (tioVerboseFlag) {
+            printf("using tcp socket\n");
+        }
+        *addressFamily = AF_INET;
     }
-
-    for (;;) {
-        clientSockFd = acceptTCPConnection(sockFd);
-
-        /* Public Socket Descriptor for interaction with QML Viewer */
-        socketFd = clientSockFd;
-
-        /* init our SIO agent connection*/
-        translateSioInit();
-
-        numRead = readTCPConnection(clientSockFd);
-
-        printf("read %d messages\n",numRead);
-
-        translateSioShutdown();
-    }
-
-    return 0;
+    return sockFd;
 }
 
-static int readTCPConnection(int clientSockFd)
+int tioQvSocketAccept(int serverFd, int addressFamily)
 {
-    ssize_t numRead;
-    int msgRead;
-    char buf[READ_BUF_SIZE];
-    char msg[READ_BUF_SIZE];
+    /* define a variable to hold the client's address for either family */
+    union {
+        struct sockaddr_un unixClientAddr;
+        struct sockaddr_in inetClientAddr;
+    } clientAddr;
+    int clientLength = sizeof(clientAddr);
 
-    msgRead = 0;
-    while ((numRead = readLine(clientSockFd, buf, READ_BUF_SIZE)) > 0) {
-        printf("got msg: %s",buf);
-        /* zero out message buffer */
-        memset(&msg,0,sizeof(&msg));
+    const int clientFd = accept4(serverFd, (struct sockaddr *)&clientAddr,
+        &clientLength, SOCK_NONBLOCK);
+    if (clientFd >= 0) {
+        switch (addressFamily) {
+        case AF_UNIX:
+            printf("Handling Unix client on %s\n",
+                clientAddr.unixClientAddr.sun_path);
+            break;
 
-        /* if we get a heartbeat respond */
-        if (strcmp(buf,"ping?\n") == 0) {
-            send(clientSockFd, buf, strlen(buf), 0);
-            continue;
+        case AF_INET:
+            printf("Handling TCP client %s\n",
+                inet_ntoa(clientAddr.inetClientAddr.sin_addr));
+            break;
+
+        default:
+            break;
         }
-
-        translate_gui_msg(buf, msg);
-
-        /* if we have a message send */
-        if (msg[0] != '\0') {
-            printf("sending message to micro: %s\n",msg);
-            translateSioWriter(msg);
-        }
-        msgRead++;
     }
 
-    if (numRead == -1) {
-        dieWithSystemMessage("read()");
-    }
-
-    if (close(clientSockFd) == -1) {
-        dieWithSystemMessage("close()");
-    }
-
-    return msgRead;
-}
-
-static int acceptTCPConnection(int servSock)
-{
-    int clientSockFd;
-
-    clientSockFd = accept(servSock, NULL, NULL);
-    if (clientSockFd == -1) {
-        dieWithSystemMessage("accept()");
-    }
-
-    return clientSockFd;
+    return clientFd;
 }
 
 static int createTCPServerSocket(unsigned short port)
@@ -125,6 +80,12 @@ static int createTCPServerSocket(unsigned short port)
     sfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sfd == -1)
         dieWithSystemMessage("socket()");
+
+    int enable = 1;
+    if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable)) < 0) {
+        dieWithSystemMessage("setsockopt() failed");
+    }
+
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET; 
@@ -142,7 +103,7 @@ static int createTCPServerSocket(unsigned short port)
     return sfd;
 }
 
-static int createUnixSocket(char* path)
+static int createUnixSocket(const char* path)
 {
     struct sockaddr_un addr;
     int sfd;
@@ -174,12 +135,40 @@ static int createUnixSocket(char* path)
     return sfd;
 }
 
-void translateSocketSendToClient(char* buf)
+int tioQvSocketRead(int socketFd, char* buf, size_t bufSize)
 {
-    int cnt = strlen(buf);
+    const size_t cnt = recv(socketFd, buf, bufSize, 0);
+    if (cnt <= 0) {
+        if (tioVerboseFlag) {
+            printf("%s(): recv() failed, client closed\n", __FUNCTION__);
+        }
+        close(socketFd);
+        return -1;
+    } else {
+        /* properly terminate the string, replacing newline if there */
+        cleanString(buf, cnt);
+        if (tioVerboseFlag) {
+            printf("received \"%s\" from qml-viewer\n", buf);
+        }
 
-    if (send( socketFd, buf, cnt, 0) != cnt) {
-        printf("socket_send_to_client(): send() failed, %d\n", socketFd);
-        perror("what's messed up?");
+        /*  Check for Ping message, if so, respond to it. */
+        if (strncmp("ping", buf, strlen("ping")) == 0) {
+            if (tioVerboseFlag) {
+                printf("%s(): sending pong!\n", __FUNCTION__);
+            }
+
+            tioQvSocketWrite(socketFd, "pong!\n");
+            return 0;
+        } else {
+            return cnt;
+        }
+    }
+}
+
+void tioQvSocketWrite(int socketFd, const char* buf)
+{
+    const size_t cnt = strlen(buf);
+    if (send(socketFd, buf, cnt, 0) != cnt) {
+        perror("send to qml-viewer socket failed");
     }
 }
