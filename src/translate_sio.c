@@ -29,7 +29,7 @@ static int tioSioSocketInitUnix(const char *socketName)
     struct sockaddr_un addr;
 
     /* Create server socket */
-    const int sioSocketFd = socket(AF_UNIX, SOCK_STREAM, 0);
+    int sioSocketFd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sioSocketFd == -1) {
         dieWithSystemMessage("socket()");
     }
@@ -44,6 +44,7 @@ static int tioSioSocketInitUnix(const char *socketName)
         sizeof(struct sockaddr)) == -1) {
         /* connection to sio_agent was not established */
         close(sioSocketFd);
+        sioSocketFd = -1;
     }
 
     return sioSocketFd;
@@ -54,7 +55,7 @@ static int tioSioSocketInitTcp(unsigned short port)
     struct sockaddr_in addr;
 
     /* Create server socket */
-    const int sioSocketFd = socket(AF_INET, SOCK_STREAM, 0);
+    int sioSocketFd = socket(AF_INET, SOCK_STREAM, 0);
     if (sioSocketFd == -1) {
         dieWithSystemMessage("socket()");
     }
@@ -69,6 +70,7 @@ static int tioSioSocketInitTcp(unsigned short port)
         sizeof(struct sockaddr)) == -1) {
         /* connection to sio_agent was not established */
         close(sioSocketFd);
+        sioSocketFd = -1;
     }
 
     return sioSocketFd;
