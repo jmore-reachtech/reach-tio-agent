@@ -280,5 +280,7 @@ void translate_reset_mapping(void)
     gui_index = 0;
     micro_index = 0;
     memset(&queue, 0, sizeof(struct translate_queue));
+    gui_def.msg[0] = '\0';
+    micro_def.msg[0] = '\0';
 }
 

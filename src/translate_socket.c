@@ -168,7 +168,7 @@ int tioQvSocketRead(int socketFd, char* buf, size_t bufSize)
 void tioQvSocketWrite(int socketFd, const char* buf)
 {
     const size_t cnt = strlen(buf);
-    if (send(socketFd, buf, cnt, 0) != cnt) {
+    if ((cnt > 0) && send(socketFd, buf, cnt, 0) != cnt) {
         perror("send to qml-viewer socket failed");
     }
 }

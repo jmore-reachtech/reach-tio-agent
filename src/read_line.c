@@ -72,7 +72,7 @@ void safe_strncpy(char *dest, const char *src, size_t n)
 /**
  * Modifies a string presumably received on a socket and nul 
  * terminates it at either the specified length or at the first 
- * newline, which ever comes first. 
+ * nul, which ever comes first. 
  * 
  * @param str the input string to be cleaned up and terminated
  * @param msgLen the number of valid characters in the input 
@@ -84,7 +84,7 @@ void safe_strncpy(char *dest, const char *src, size_t n)
 size_t cleanString(char *str, size_t msgLen)
 {
     off_t i = 0;
-    while ((i < msgLen) && (str[i] != '\n') && (str[i] != '\0')) {
+    while ((i < msgLen) && (str[i] != '\0')) {
         i++;
     }
     str[i] = '\0';

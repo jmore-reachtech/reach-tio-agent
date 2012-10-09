@@ -104,10 +104,14 @@ int tioSioSocketRead(int socketFd, char* buf, size_t bufSize)
         close(socketFd);
         return -1;
     } else {
-        /* properly terminate the string, replacing newline if there */
-        cleanString(buf, cnt);
+        /* properly terminate the string */
+        const size_t newlen = cleanString(buf, cnt);
         if (tioVerboseFlag) {
-            printf("received \"%s\" from sio_agent\n", buf);
+            /* take off the newline for display purposes */
+            char tmp[READ_BUF_SIZE];
+            strncpy(tmp, buf, sizeof(tmp));
+            tmp[(newlen > 0) ? newlen - 1 : 0] = '\0';
+            printf("received \"%s\" from sio_agent\n", tmp);
         }
 
         return cnt;
@@ -117,7 +121,7 @@ int tioSioSocketRead(int socketFd, char* buf, size_t bufSize)
 void tioSioSocketWrite(int sioSocketFd, char* buf)
 {
     const size_t cnt = strlen(buf);
-    if (send(sioSocketFd, buf, cnt, 0) != cnt) {
+    if ((cnt > 0) && send(sioSocketFd, buf, cnt, 0) != cnt) {
         perror("send to sio_agent socket failed");
     }
 }
