@@ -7,8 +7,15 @@
 
 #include <sys/types.h>
 
+#include "translate_agent.h"
+
 ssize_t readLine(int fd, char *buffer, size_t n);
 void safe_strncpy(char *dest, const char *src, size_t n);
-size_t cleanString(char *str, size_t msgLen);
+
+struct LineBuffer
+{
+    char store[READ_BUF_SIZE];
+    off_t pos;
+};
 
 #endif

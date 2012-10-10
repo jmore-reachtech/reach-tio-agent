@@ -94,30 +94,6 @@ int tioSioSocketInit(unsigned short port, const char *socketName)
     return sioFd;
 }
 
-int tioSioSocketRead(int socketFd, char* buf, size_t bufSize)
-{
-    const size_t cnt = recv(socketFd, buf, bufSize, 0);
-    if (cnt <= 0) {
-        if (tioVerboseFlag) {
-            printf("%s(): recv() failed, client closed\n", __FUNCTION__);
-        }
-        close(socketFd);
-        return -1;
-    } else {
-        /* properly terminate the string */
-        const size_t newlen = cleanString(buf, cnt);
-        if (tioVerboseFlag) {
-            /* take off the newline for display purposes */
-            char tmp[READ_BUF_SIZE];
-            strncpy(tmp, buf, sizeof(tmp));
-            tmp[(newlen > 0) ? newlen - 1 : 0] = '\0';
-            printf("received \"%s\" from sio_agent\n", tmp);
-        }
-
-        return cnt;
-    }
-}
-
 void tioSioSocketWrite(int sioSocketFd, char* buf)
 {
     const size_t cnt = strlen(buf);

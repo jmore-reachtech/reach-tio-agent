@@ -4,9 +4,12 @@
  * Implementation of readLine().
  */
 
-#include <unistd.h>
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>     /* Commonly used string-handling functions */
+#include <unistd.h>
+
+#include "read_line.h"
 
 /* 
  * Read characters from 'fd' until a newline is encountered. If a newline
@@ -69,25 +72,70 @@ void safe_strncpy(char *dest, const char *src, size_t n)
                             place but this one shouldn't interfere in any way */
 }
 
-/**
- * Modifies a string presumably received on a socket and nul 
- * terminates it at either the specified length or at the first 
- * nul, which ever comes first. 
- * 
- * @param str the input string to be cleaned up and terminated
- * @param msgLen the number of valid characters in the input 
- *               string
- * 
- * @return size_t the new length of the string, including the 
- *         terminating nul character
- */
-size_t cleanString(char *str, size_t msgLen)
+int readLine2(int socketFd, char *outMsg, size_t msgSize,
+    struct LineBuffer *buffer, const char *end)
 {
-    off_t i = 0;
-    while ((i < msgLen) && (str[i] != '\0')) {
-        i++;
-    }
-    str[i] = '\0';
-    return i;
-}
+    /* read into a temporary buffer for further processing */
+    const size_t cnt = recv(socketFd, buffer->store + buffer->pos,
+        sizeof(buffer->store) - buffer->pos, 0);
+    if (cnt <= 0) {
+        if (tioVerboseFlag) {
+            printf("recv() from %s failed, client closed\n", end);
+        }
+        close(socketFd);
+        buffer->pos = 0;  /* flush any remaining buffered characters */
+        return -1;
+    } else {
+        /* look through the new part of the buffer for a newline */
+        off_t i = buffer->pos;
+        while (i < (buffer->pos + cnt)) {
+            /* make sure outMsg is long enough to hold this message + \0 */
+            if (i >= (msgSize - 1)) {
+                buffer->pos = 0;
+                return 0;
+            }
 
+            if (buffer->store[i] == '\n') {
+                /* copy the accumulated characters including \n to outMsg */
+                bcopy(buffer->store, outMsg, ++i);
+
+                /* nul terminate the string */
+                outMsg[i] = '\0';
+
+                if (tioVerboseFlag) {
+                    /* take off the newline for display purposes */
+                    char tmp[i];
+                    bcopy(outMsg, tmp, i);
+                    tmp[i - 1] = '\0';
+                    printf("received \"%s\" from %s\n", tmp, end);
+                }
+
+                /* squish whatever may remain to the start of the store */
+                buffer->pos += cnt - i;
+                bcopy(buffer->store + i, buffer->store, buffer->pos);
+
+                return i;
+            }
+
+            i++;
+        }
+
+        /* TODO: remove this message */
+        if (tioVerboseFlag) {
+            printf("message received from %s with no newline: %s\n",
+                end, buffer->store);
+        }
+
+        if (i >= sizeof(buffer->store)) {
+            /* the temporary buffer is full but no newline so flush it */
+            printf("%s buffer overflow, flushing\n", end);
+            buffer->pos = 0;
+        }
+
+        /* update position to start next message */
+        buffer->pos += i;
+
+        /* no newline found, no message to return */
+        return 0;
+    }
+}

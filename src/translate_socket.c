@@ -55,8 +55,7 @@ int tioQvSocketAccept(int serverFd, int addressFamily)
     if (clientFd >= 0) {
         switch (addressFamily) {
         case AF_UNIX:
-            printf("Handling Unix client on %s\n",
-                clientAddr.unixClientAddr.sun_path);
+            printf("Handling Unix client\n");
             break;
 
         case AF_INET:
@@ -133,36 +132,6 @@ static int createUnixSocket(const char* path)
     }
 
     return sfd;
-}
-
-int tioQvSocketRead(int socketFd, char* buf, size_t bufSize)
-{
-    const size_t cnt = recv(socketFd, buf, bufSize, 0);
-    if (cnt <= 0) {
-        if (tioVerboseFlag) {
-            printf("%s(): recv() failed, client closed\n", __FUNCTION__);
-        }
-        close(socketFd);
-        return -1;
-    } else {
-        /* properly terminate the string, replacing newline if there */
-        cleanString(buf, cnt);
-        if (tioVerboseFlag) {
-            printf("received \"%s\" from qml-viewer\n", buf);
-        }
-
-        /*  Check for Ping message, if so, respond to it. */
-        if (strncmp("ping", buf, strlen("ping")) == 0) {
-            if (tioVerboseFlag) {
-                printf("%s(): sending pong!\n", __FUNCTION__);
-            }
-
-            tioQvSocketWrite(socketFd, "pong!\n");
-            return 0;
-        } else {
-            return cnt;
-        }
-    }
 }
 
 void tioQvSocketWrite(int socketFd, const char* buf)

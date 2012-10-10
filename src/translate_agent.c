@@ -16,6 +16,7 @@
 
 #include "translate_agent.h"
 #include "translate_parser.h"
+#include "read_line.h"
 
 /* global variables, shared with other modules */
 int	tioVerboseFlag;
@@ -156,6 +157,12 @@ static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
     FD_SET(listenFd, &currFdSet);
     int nfds = listenFd + 1;
 
+    /* buffers for collection characters from each side */
+    struct LineBuffer fromSio;
+    fromSio.pos = 0;
+    struct LineBuffer fromQv;
+    fromQv.pos = 0;
+
     /* 
      * This is the select loop which waits for characters to be received on the
      * sio_agent descriptor and on either the listen socket (meaning an
@@ -210,22 +217,30 @@ static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
             if ((connectedFd >= 0) && FD_ISSET(connectedFd, &readFdSet)) {
                 /* connected qml-viewer has something to say */
                 char inMsg[READ_BUF_SIZE];
-                const int readCount = tioQvSocketRead(connectedFd, inMsg,
-                    sizeof(inMsg));
+                const int readCount = readLine2(connectedFd, inMsg,
+                    sizeof(inMsg), &fromSio, "qml-viewer");
                 if (readCount < 0) {
                     /* socket closed, stop watching this file descriptor */
                     FD_CLR(connectedFd, &currFdSet);
                     FD_SET(listenFd, &currFdSet);
                     connectedFd = -1;
                     nfds = max(sioFd, listenFd) + 1;
-                } else if ((readCount > 0) && (sioFd >= 0)) {
-                    /* 
-                     * this is a normal message from qml-viewer, translate it
-                     * and send the result to sio_agent 
-                     */ 
-                    char outMsg[sizeof(inMsg)];
-                    translate_gui_msg(inMsg, outMsg, sizeof(outMsg));
-                    tioSioSocketWrite(sioFd, outMsg);
+                } else if (readCount > 0) {
+                    /*  Check for Ping message, if so, respond to it. */
+                    if (strncmp("ping", inMsg, strlen("ping")) == 0) {
+                        if (tioVerboseFlag) {
+                            printf("%s(): sending pong!\n", __FUNCTION__);
+                        }
+                        tioQvSocketWrite(sioFd, "pong!\n");
+                    } else if (sioFd >= 0) {
+                        /* 
+                         * this is a normal message from qml-viewer, translate
+                         * it and send the result to sio_agent 
+                         */ 
+                        char outMsg[sizeof(inMsg)];
+                        translate_gui_msg(inMsg, outMsg, sizeof(outMsg));
+                        tioSioSocketWrite(sioFd, outMsg);
+                    }
                 }
             }
 
@@ -236,7 +251,8 @@ static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
                  * tio_agent, if connected 
                  */
                 char inMsg[READ_BUF_SIZE];
-                int readCount = tioSioSocketRead(sioFd, inMsg, sizeof(inMsg));
+                int readCount = readLine2(sioFd, inMsg, sizeof(inMsg),
+                    &fromQv, "sio-agent");
                 if (readCount < 0) {
                     /* fall out of this loop to reopen connection to sio_agent */
                     FD_CLR(sioFd, &currFdSet);

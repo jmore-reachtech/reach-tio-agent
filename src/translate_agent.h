@@ -17,19 +17,18 @@
 #endif
 
 #define BACKLOG 5
-
 #define READ_BUF_SIZE 128
+
+struct LineBuffer;
 
 /* functions exported from translate_socket.c */
 int tioQvSocketInit(unsigned short port, int *addressFamily,
     const char *socketPath);
 int tioQvSocketAccept(int listenFd, int addressFamily);
-int tioQvSocketRead(int socketFd, char* buf, size_t bufSize);
 void tioQvSocketWrite(int socketFd, const char *buf);
 
 /* functions exported from translate_sio.c */
 int tioSioSocketInit(unsigned short port, const char *socketName);
-int tioSioSocketRead(int socketFd, char* buf, size_t bufSize);
 void tioSioSocketWrite(int sioSocketfd, char *buf);
 
 /* functions exported from die_with_message.c */
