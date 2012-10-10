@@ -86,11 +86,6 @@ int tioSioSocketInit(unsigned short port, const char *socketName)
         sioFd = tioSioSocketInitTcp(port);
     }
 
-    if (sioFd >= 0) {
-        /* send ping */
-        tioSioSocketWrite(sioFd, "ping\n");
-    }
-
     return sioFd;
 }
 

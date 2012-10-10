@@ -226,13 +226,7 @@ static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
                     connectedFd = -1;
                     nfds = max(sioFd, listenFd) + 1;
                 } else if (readCount > 0) {
-                    /*  Check for Ping message, if so, respond to it. */
-                    if (strncmp("ping", inMsg, strlen("ping")) == 0) {
-                        if (tioVerboseFlag) {
-                            printf("%s(): sending pong!\n", __FUNCTION__);
-                        }
-                        tioQvSocketWrite(sioFd, "pong!\n");
-                    } else if (sioFd >= 0) {
+                    if (sioFd >= 0) {
                         /* 
                          * this is a normal message from qml-viewer, translate
                          * it and send the result to sio_agent 
