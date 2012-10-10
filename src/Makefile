@@ -14,6 +14,9 @@ headers = read_line.h \
 
 LDFLAGS=-pthread
 
+CFLAGS=-Wall
+
+
 ifeq ($(DEBUG_DEF),1)
 	DEBUG = -g -O0 -DDEBUG
 else
@@ -24,7 +27,7 @@ endif
 all: tio-agent
 
 tio-agent: $(sources) $(headers)
-	$(CC) $(LDFLAGS) $(DEBUG) -o $@ $(sources)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(DEBUG) -o $@ $(sources)
 
 clean:
 	$(RM) tio-agent
