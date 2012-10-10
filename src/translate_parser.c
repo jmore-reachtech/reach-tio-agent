@@ -256,10 +256,17 @@ static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
     }
 
     /* send default message */
+    if (strlen(def.msg) > 0) {
 #ifdef DEBUG
-    printf("sending default message\n");
+        printf("sending default message\n");
 #endif
-    sprintf(outMsg, def.msg, tmp);
+        sprintf(outMsg, def.msg, tmp);
+    } else {
+#ifdef DEBUG
+        printf("sending untranslated message\n");
+#endif
+        safe_strncpy(outMsg, inMsg, outMsgSize);
+    }
 }
 
 void translate_gui_msg(const char* inMsg, char* outMsg, size_t outMsgSize)
@@ -280,5 +287,7 @@ void translate_reset_mapping(void)
     gui_index = 0;
     micro_index = 0;
     memset(&queue, 0, sizeof(struct translate_queue));
+    gui_def.msg[0] = '\0';
+    micro_def.msg[0] = '\0';
 }
 
