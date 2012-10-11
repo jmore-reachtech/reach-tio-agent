@@ -21,14 +21,15 @@
 #include "read_line.h"
 
 /* global variables, shared with other modules */
-int	tioVerboseFlag;
+int tioVerboseFlag;
 
 static int keepGoing;
 static const char *progName;
 
 static void tioDumpHelp();
-static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
-    unsigned short sioPort, const char *sioSocketPath);
+static void tioAgent(const char *translatePath, unsigned refreshDelay,
+    unsigned short tioPort, const char *tioSocketPath, unsigned short sioPort,
+    const char *sioSocketPath);
 static inline int max(int a, int b) { return (a > b) ? a : b; }
 
 int main(int argc, char** argv)
@@ -37,21 +38,23 @@ int main(int argc, char** argv)
 
     const char *transFilePath = TIO_DEFAULT_TRANSLATION_FILE_PATH;
 
+    unsigned refreshDelay = 0;   /* in seconds, 0 = disabled */
     unsigned short sioPort = 0;  /* 0 means use Unix socket */
     unsigned short tioPort = 0;
-    int	daemonFlag = 0;
+    int daemonFlag = 0;
 
     while (1) {
         static struct option longOptions[] = {
             { "daemon",     no_argument,       0, 'd' },
             { "file",       required_argument, 0, 'f' },
-            { "sio_port",   required_argument, 0, 's' },
-            { "tio_port",   required_argument, 0, 't' },
+            { "refresh",    optional_argument, 0, 'r' },
+            { "sio_port",   optional_argument, 0, 's' },
+            { "tio_port",   optional_argument, 0, 't' },
             { "verbose",    no_argument,       0, 'v' },
             { "help",       no_argument,       0, 'h' },
             { 0,            0, 0,  0  }
         };
-        int c = getopt_long(argc, argv, "df:s::t::vh?", longOptions, 0);
+        int c = getopt_long(argc, argv, "df:r::s::t::vh?", longOptions, 0);
 
         if (c == -1) {
             break;  // no more options to process
@@ -64,6 +67,10 @@ int main(int argc, char** argv)
 
         case 'f':
             transFilePath = optarg;
+            break;
+
+        case 'r':
+            refreshDelay = (optarg == 0) ? DEFAULT_REFRESH_DELAY : atoi(optarg);
             break;
 
         case 's':
@@ -82,8 +89,8 @@ int main(int argc, char** argv)
         case '?':
         default:
             tioDumpHelp();
-			exit(1);
-		}
+            exit(1);
+        }
     }
 
 #if 0
@@ -98,28 +105,28 @@ int main(int argc, char** argv)
     }
 #endif
 
-	loadTranslateMap(transFilePath);
+    /* keep STDIO going for now */
+    if (daemonFlag) {
+        daemon(0, 1);
+    }
 
-	/* keep STDIO going for now */
-	if (daemonFlag) {
-		daemon(0, 1);
-	}
+    tioAgent(transFilePath, refreshDelay, tioPort, TIO_AGENT_UNIX_SOCKET,
+        sioPort, SIO_AGENT_UNIX_SOCKET);
 
-    tioAgent(tioPort, TIO_AGENT_UNIX_SOCKET, sioPort, SIO_AGENT_UNIX_SOCKET);
-
-	exit(EXIT_SUCCESS);
+    exit(EXIT_SUCCESS);
 }
 
 static void tioDumpHelp()
 {
     fprintf(stderr, "usage: %s [options]\n"
         "    where options are:\n"
-        "        -d          | --daemon             run in background\n"
-        "        -f <path>   | --file=<path>        use <file> for translations\n"
-        "        -s [<port>] | --sio-port=[<port>]  use TCP socket, default = %d\n"
-        "        -t [<port>] | --tio-port=[<port>]  use TCP socket, default = %d\n"
-        "        -v          | --verbose            print progress messages\n"
-        "        -h          | -?|--help            print usage information\n",
+        "        -d         | --daemon             run in background\n"
+        "        -f<path>   | --file=<path>        use <file> for translations\n"
+        "        -r<delay>  | --refresh=<delay>    autorefresh translation file\n"
+        "        -s[<port>] | --sio-port=[<port>]  use TCP socket, default = %d\n"
+        "        -t[<port>] | --tio-port=[<port>]  use TCP socket, default = %d\n"
+        "        -v         | --verbose            print progress messages\n"
+        "        -h         | -?|--help            print usage information\n",
         progName, SIO_DEFAULT_AGENT_PORT, TIO_DEFAULT_AGENT_PORT);
 }
 
@@ -128,11 +135,15 @@ static void tioInterruptHandler(int sig)
     keepGoing = 0;
 }
 
-static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
-    unsigned short sioPort, const char *sioSocketPath)
+static void tioAgent(const char *translatePath, unsigned refreshDelay,
+    unsigned short tioPort, const char *tioSocketPath, unsigned short sioPort,
+    const char *sioSocketPath)
 {
     fd_set currFdSet;
     int connectedFd = -1;  /* not currently connected */
+    time_t lastCheckTime = 0;
+    time_t lastModTime = 0;
+    int addressFamily = 0;
 
     {
         /* install a signal handler to remove the socket file */
@@ -146,7 +157,6 @@ static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
     }
 
     /* open the server socket */
-    int addressFamily = 0;
     const int listenFd = tioQvSocketInit(tioPort, &addressFamily,
         tioSocketPath);
     if (listenFd < 0) {
@@ -164,6 +174,10 @@ static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
     fromSio.pos = 0;
     struct LineBuffer fromQv;
     fromQv.pos = 0;
+
+    /* do initial load, may get reloaded in while loop */
+    lastModTime = loadTranslateMap(translatePath, 0);
+    lastCheckTime = time(0);
 
     /* 
      * This is the select loop which waits for characters to be received on the
@@ -213,6 +227,13 @@ static void tioAgent(unsigned short tioPort, const char *tioSocketPath,
                     FD_SET(connectedFd, &currFdSet);
                     nfds = max(sioFd, connectedFd) + 1;
                 }
+            }
+
+            /* see about auto reloading the translation file */
+            if ((refreshDelay > 0) &&
+                (time(0) > (lastCheckTime + refreshDelay))) {
+                lastModTime = loadTranslateMap(translatePath, lastModTime);
+                lastCheckTime = time(0);
             }
 
             /* check for packet received from qml-viewer */

@@ -8,6 +8,8 @@
 #ifndef TRANSLATE_PARSER_H_
 #define TRANSLATE_PARSER_H_
 
+#include <time.h>
+
 #define MAX_MSG_MAP_SIZE 200
 #define MAX_LINE_SIZE 128
 
@@ -38,7 +40,7 @@ struct translate_queue {
     struct translate_msg micro_map[MAX_MSG_MAP_SIZE];
 };
 
-void loadTranslateMap(const char*);
+time_t loadTranslateMap(const char* path, time_t lastModTime);
 void translate_add_mapping(const char*);
 void translate_gui_msg(const char*, char*, size_t);
 void translate_micro_msg(const char*, char*, size_t);

@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* Commonly used string-handling functions */
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "translate_parser.h"
@@ -25,31 +26,49 @@ static struct translate_msg micro_def;
 static void translate_msg(const char *, char *, size_t, int,
     struct translate_msg *, struct translate_msg);
 
-void loadTranslateMap(const char* filePath)
+time_t loadTranslateMap(const char* filePath, time_t lastModTime)
 {
 	int inputFd;
 	int numRead = 0;
 	char buf[MAX_LINE_SIZE];
+    struct stat filestat;
 
-	inputFd = open(filePath, O_RDONLY);
-	if (inputFd == -1) {
-		printf("error opening file %s\n", filePath);
-		return;
-	}
+    int doReload = 0;
+    if (stat(filePath, &filestat) != 0) {
+        perror("stat() failed");
+        memset(&filestat, 0, sizeof(filestat));
+        doReload = 1;
+    } else {
+        doReload = filestat.st_mtime > lastModTime;
+    }
 
-	/* reset the queue */
-	translate_reset_mapping();
+    if (doReload) {
+        inputFd = open(filePath, O_RDONLY);
+        if (inputFd == -1) {
+            printf("error opening file %s\n", filePath);
+            return 0;
+        }
+    
+        /* reset the queue */
+        translate_reset_mapping();
+    
+        while ((numRead = readLine(inputFd, buf, MAX_LINE_SIZE)) > 0) {
+            translate_add_mapping(buf);
+        }
+    
+        if (numRead == -1)
+            dieWithSystemMessage("read()");
+    
+        if (close(inputFd) == -1) {
+            dieWithSystemMessage("error closing file");
+        }
 
-	while ((numRead = readLine(inputFd, buf, MAX_LINE_SIZE)) > 0) {
-		translate_add_mapping(buf);
-	}
+        if (tioVerboseFlag) {
+            printf("loaded translation file \"%s\"\n", filePath);
+        }
+    }
 
-	if (numRead == -1)
-		dieWithSystemMessage("read()");
-
-	if (close(inputFd) == -1) {
-		dieWithSystemMessage("error closing file");
-	}
+    return filestat.st_mtime;
 }
 
 void translate_add_mapping(const char *msg)
