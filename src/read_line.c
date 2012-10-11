@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>     /* Commonly used string-handling functions */
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "read_line.h"
@@ -118,12 +119,6 @@ int readLine2(int socketFd, char *outMsg, size_t msgSize,
             }
 
             i++;
-        }
-
-        /* TODO: remove this message */
-        if (tioVerboseFlag) {
-            printf("message received from %s with no newline: %s\n",
-                end, buffer->store);
         }
 
         if (i >= sizeof(buffer->store)) {

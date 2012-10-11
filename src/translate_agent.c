@@ -4,15 +4,17 @@
  *  Created on: Oct 7, 2011
  *      Author: jhorn
  */
+
+#define _XOPEN_SOURCE 400
+
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
-// #include <unistd.h>
-// #include <fcntl.h>
-// #include <termios.h>
+#include <unistd.h>
 #include <string.h>
+#include <sys/select.h>
 
 #include "translate_agent.h"
 #include "translate_parser.h"

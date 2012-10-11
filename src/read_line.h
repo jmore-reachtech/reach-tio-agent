@@ -10,6 +10,8 @@
 #include "translate_agent.h"
 
 ssize_t readLine(int fd, char *buffer, size_t n);
+int readLine2(int socketFd, char *outMsg, size_t msgSize,
+    struct LineBuffer *buffer, const char *end);
 void safe_strncpy(char *dest, const char *src, size_t n);
 
 struct LineBuffer

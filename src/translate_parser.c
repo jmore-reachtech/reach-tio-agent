@@ -8,8 +8,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>     /* Commonly used string-handling functions */
+#include <unistd.h>
 
 #include "translate_parser.h"
+#include "read_line.h"
 
 static int gui_index = 0;
 static int micro_index = 0;

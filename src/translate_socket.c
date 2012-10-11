@@ -4,6 +4,8 @@
  *  Created on: Oct 10, 2011
  *      Author: jhorn
  */
+#define _GNU_SOURCE
+
 #include <sys/types.h>  /* Type definitions used by many programs */
 #include <stdio.h>      /* Standard I/O functions */
 #include <stdlib.h>     /* Prototypes of commonly used library functions,
@@ -48,7 +50,7 @@ int tioQvSocketAccept(int serverFd, int addressFamily)
         struct sockaddr_un unixClientAddr;
         struct sockaddr_in inetClientAddr;
     } clientAddr;
-    int clientLength = sizeof(clientAddr);
+    socklen_t clientLength = sizeof(clientAddr);
 
     const int clientFd = accept4(serverFd, (struct sockaddr *)&clientAddr,
         &clientLength, SOCK_NONBLOCK);
