@@ -107,7 +107,9 @@ int main(int argc, char** argv)
 
     /* keep STDIO going for now */
     if (daemonFlag) {
-        daemon(0, 1);
+        if (daemon(0, 1) != 0) {
+            dieWithSystemMessage("daemon() failed");
+        }
     }
 
     tioAgent(transFilePath, refreshDelay, tioPort, TIO_AGENT_UNIX_SOCKET,

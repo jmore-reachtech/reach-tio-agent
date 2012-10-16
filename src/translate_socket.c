@@ -57,12 +57,16 @@ int tioQvSocketAccept(int serverFd, int addressFamily)
     if (clientFd >= 0) {
         switch (addressFamily) {
         case AF_UNIX:
-            printf("Handling Unix client\n");
+            if (tioVerboseFlag) {
+                printf("Handling Unix client\n");
+            }
             break;
 
         case AF_INET:
-            printf("Handling TCP client %s\n",
-                inet_ntoa(clientAddr.inetClientAddr.sin_addr));
+            if (tioVerboseFlag) {
+                printf("Handling TCP client %s\n",
+                    inet_ntoa(clientAddr.inetClientAddr.sin_addr));
+            }
             break;
 
         default:
