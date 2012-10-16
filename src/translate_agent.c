@@ -264,7 +264,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
             }
 
             /* check for anything from sio_agent connection */
-            if (FD_ISSET(sioFd, &readFdSet)) {
+            if ((sioFd >= 0) && FD_ISSET(sioFd, &readFdSet)) {
                 /* 
                  * sio_agent socket port has something to send to the 
                  * tio_agent, if connected 
