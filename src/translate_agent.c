@@ -147,6 +147,8 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
     time_t lastModTime = 0;
     int addressFamily = 0;
 
+    TranslatorState *translatorState = GetTranslatorState();
+
     {
         /* install a signal handler to remove the socket file */
         struct sigaction a;
@@ -177,8 +179,8 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
     struct LineBuffer fromQv;
     fromQv.pos = 0;
 
-    /* do initial load, may get reloaded in while loop */
-    lastModTime = loadTranslateMap(translatePath, 0);
+    /* do initial load, may get reloaded in while loop, below */
+    lastModTime = loadTranslations(translatorState, translatePath, 0);
     lastCheckTime = time(0);
 
     /* 
@@ -234,7 +236,8 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
             /* see about auto reloading the translation file */
             if ((refreshDelay > 0) &&
                 (time(0) > (lastCheckTime + refreshDelay))) {
-                lastModTime = loadTranslateMap(translatePath, lastModTime);
+                lastModTime = loadTranslations(translatorState, translatePath,
+                    lastModTime);
                 lastCheckTime = time(0);
             }
 
@@ -257,7 +260,8 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
                          * it and send the result to sio_agent 
                          */ 
                         char outMsg[sizeof(inMsg)];
-                        translate_gui_msg(inMsg, outMsg, sizeof(outMsg));
+                        translate_gui_msg(translatorState, inMsg, outMsg,
+                            sizeof(outMsg));
                         tioSioSocketWrite(sioFd, outMsg);
                     }
                 }
@@ -279,7 +283,8 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
                     nfds = ((connectedFd >= 0) ? connectedFd : listenFd) + 1;
                 } else if ((readCount > 0) && (connectedFd >= 0)) {
                     char outMsg[sizeof(inMsg)];
-                    translate_micro_msg(inMsg, outMsg, sizeof(outMsg));
+                    translate_micro_msg(translatorState, inMsg, outMsg,
+                        sizeof(outMsg));
                     tioQvSocketWrite(connectedFd, outMsg);
                 }
             }

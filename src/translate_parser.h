@@ -10,7 +10,10 @@
 
 #include <time.h>
 
-#define MAX_MSG_MAP_SIZE 200
+/* definitions for open source lib_tree */
+#include "libtree.h"
+
+#define MAX_MSG_MAP_SIZE 400
 #define MAX_LINE_SIZE 128
 
 #define FROM_GUI 'G'
@@ -29,21 +32,14 @@ typedef enum { FALSE, TRUE } Boolean;
 
 typedef enum { SPEC_NONE, SPEC_STRING, SPEC_INTEGER } format_spec;
 
-struct translate_msg {
-    char key[127];
-    char msg[127];
-    format_spec fmt_spec;
-};
+typedef struct TranslatorState TranslatorState;
 
-struct translate_queue {
-    struct translate_msg gui_map[MAX_MSG_MAP_SIZE];
-    struct translate_msg micro_map[MAX_MSG_MAP_SIZE];
-};
-
-time_t loadTranslateMap(const char* path, time_t lastModTime);
-void translate_add_mapping(const char*);
-void translate_gui_msg(const char*, char*, size_t);
-void translate_micro_msg(const char*, char*, size_t);
-void translate_reset_mapping(void);
+TranslatorState *GetTranslatorState();
+time_t loadTranslations(TranslatorState *state, const char* path,
+    time_t lastModTime);
+void translate_gui_msg(const TranslatorState *state, const char* inMsg,
+    char* outMsg, size_t outMsgSize);
+void translate_micro_msg(const TranslatorState *state, const char* inMsg,
+    char* outMsg, size_t outMsgSize);
 
 #endif /* TRANSLATE_PARSER_H_ */

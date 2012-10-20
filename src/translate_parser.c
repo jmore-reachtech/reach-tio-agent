@@ -14,19 +14,84 @@
 #include "translate_parser.h"
 #include "read_line.h"
 
-static int gui_index = 0;
-static int micro_index = 0;
-//TODO: move the queue to a linked list or BST
-static struct translate_queue queue;
+/* forward function declarations */
+void translate_add_mapping(TranslatorState *state, const char*,
+    unsigned lineNumber);
+void translate_reset_mapping(TranslatorState *state);
+int compareTranslations(const struct rbtree_node *first,
+    const struct rbtree_node *second);
 
-/* we'll keep these out of the queue for now */
-static struct translate_msg gui_def;
-static struct translate_msg micro_def;
+/**
+ * This structure is a single record of information which is placed into a
+ * red/black tree.
+ */
+struct translate_msg {
+    char key[MAX_LINE_SIZE];
+    char msg[MAX_LINE_SIZE];
+    format_spec fmt_spec;
+    unsigned lineNumber;
+    struct rbtree_node node;
+};
 
-static void translate_msg(const char *, char *, size_t, int,
-    struct translate_msg *, struct translate_msg);
+/**
+ * This structure represents the state of the translation maps used by the 
+ * agent.  It contains the free store of translations, maps for both directions 
+ * of message traversal and default messages for each. 
+ */
+struct TranslatorState
+{
+    /* the number of translations allocated from translations array */
+    unsigned translationCount;
 
-time_t loadTranslateMap(const char* filePath, time_t lastModTime)
+    /* the default message to use for messages from the GUI */
+    char guiDefault[MAX_LINE_SIZE];
+
+    /* the default message to use for messages from the micro */
+    char microDefault[MAX_LINE_SIZE];
+
+    /* the pool of translation structures that will be put into the maps */
+    struct translate_msg translations[MAX_MSG_MAP_SIZE];
+
+    /* the map of translation messages for messages received from the GUI */
+    struct rbtree guiTranslationMap;
+
+    /* the map of translation messages for messages received from the micro */
+    struct rbtree microTranslationMap;
+};
+
+/**
+ * The program has one set of translations.  One such structure is statically 
+ * allocated in this function and its address is returned by it in order for 
+ * the program to gain access to it. 
+ * 
+ * @return TranslatorState* 
+ */
+TranslatorState *GetTranslatorState()
+{
+    static TranslatorState state;
+    return &state;
+}
+
+/**
+ * This function will possibly load the translation maps from a file.  Whether 
+ * this occurrs or not depends on the file's modification time and the time 
+ * argument passed in. 
+ *  
+ * Typical use is to do the initial load by passing in 0 as the lastModTime 
+ * then using the return value the next time the function is called.  This way 
+ * the translations will be reloaded only if the file has been modified. 
+ * 
+ * @param state the program's set of translations, etc.
+ * @param filePath the file system path name to the file containing the 
+ *                 translations to be loaded
+ * @param lastModTime the time of the previous check for reloading the 
+ *                    translations; this can be 0 to force the load to take
+ *                    place
+ * 
+ * @return time_t the modification time of the file specified by filePath
+ */
+time_t loadTranslations(TranslatorState *state, const char* filePath,
+    time_t lastModTime)
 {
 	int inputFd;
 	int numRead = 0;
@@ -48,17 +113,18 @@ time_t loadTranslateMap(const char* filePath, time_t lastModTime)
             printf("error opening file %s\n", filePath);
             return 0;
         }
-    
-        /* reset the queue */
-        translate_reset_mapping();
-    
+
+        /* remove all current translations */
+        translate_reset_mapping(state);
+
+        unsigned lineNumber = 1;
         while ((numRead = readLine(inputFd, buf, MAX_LINE_SIZE)) > 0) {
-            translate_add_mapping(buf);
+            translate_add_mapping(state, buf, lineNumber++);
         }
-    
+
         if (numRead == -1)
             dieWithSystemMessage("read()");
-    
+
         if (close(inputFd) == -1) {
             dieWithSystemMessage("error closing file");
         }
@@ -71,11 +137,18 @@ time_t loadTranslateMap(const char* filePath, time_t lastModTime)
     return filestat.st_mtime;
 }
 
-void translate_add_mapping(const char *msg)
+/**
+ * Adds a single translation to the correct map in the state object.
+ * 
+ * @param state the translations state for the program
+ * @param msg a single line from the translation file
+ * @param lineNumber the line number of the line in the translations file
+ */
+void translate_add_mapping(TranslatorState *state, const char *msg,
+    unsigned lineNumber)
 {
     char *origin, *key, *marker, *message, *setter;
     char tmp[MAX_LINE_SIZE];
-    struct translate_msg trans;
 
     /* check for empty buffer */
     if (msg == NULL || *msg == '\n' || *msg == '\0') {
@@ -92,12 +165,6 @@ void translate_add_mapping(const char *msg)
 
     /* copy message so strtok() can muck with the string */
     safe_strncpy(tmp, msg, sizeof(tmp));
-
-    /* default the format specifier to none */
-    trans.fmt_spec = SPEC_NONE;
-
-    /* clear the key and message */
-    memset(&trans, 0, sizeof(struct translate_msg));
 
     /*
      * Translations are one per line in the form of:
@@ -138,13 +205,11 @@ void translate_add_mapping(const char *msg)
     if (key[0] == '%') {
         switch (*origin) {
         case FROM_GUI:
-            safe_strncpy(gui_def.key, key, sizeof(gui_def.key));
-            snprintf(gui_def.msg, sizeof(gui_def.msg), "%s\n", message);
+            snprintf(state->microDefault, MAX_LINE_SIZE, "%s\n", message);
             break;
 
         case FROM_MICRO:
-            safe_strncpy(micro_def.key, key, sizeof(micro_def.key));
-            snprintf(micro_def.msg, sizeof(micro_def.msg), "%s\n", message);
+            snprintf(state->microDefault, MAX_LINE_SIZE, "%s\n", message);
             break;
 
         default:
@@ -154,60 +219,92 @@ void translate_add_mapping(const char *msg)
         return;
     }
 
-    /* check for = in the key and make sure we have more than just an = */
-    setter = strstr(key, "=");
-    if (setter != NULL && strlen(setter) > 2) {
-        /* look at the setter to see if it is a format specifier */
-        if (setter[1] == '%') {
-            /* we have a setter so remove the specifier from the key */
-            safe_strncpy(trans.key, key, setter - key + 2);
-            switch (setter[2]) {
-            case 's':
-                trans.fmt_spec = SPEC_STRING; break;
-            case 'd':
-                trans.fmt_spec = SPEC_INTEGER; break;
-            }
-            /* we need to find the format specifier */
-        } else {
-            /* the setter is a string so just copy the full key */
-            safe_strncpy(trans.key, key, strlen(key));
+    /* allocate a translation from array of them if any left */
+    if (state->translationCount >= MAX_MSG_MAP_SIZE) {
+        static int errorPrinted = 0;
+        if (!errorPrinted) {
+            printf("too many translation rules, maximum of %d allowed\n",
+                MAX_MSG_MAP_SIZE);
+            errorPrinted = 1;
         }
     } else {
-        /* copy over full key */
-        safe_strncpy(trans.key, key, strlen(key));
-    }
+        struct translate_msg *translation =
+            &state->translations[state->translationCount++];
 
-    /* copy the message over */
-    snprintf(trans.msg, sizeof(trans.msg), "%s\n", message);
+        /* clear the key and message */
+        memset(translation, 0, sizeof(struct translate_msg));
 
-    /* add message to queue*/
-    switch (*origin) {
-    case FROM_GUI:
-        if (gui_index >= MAX_MSG_MAP_SIZE) {
-#ifdef DEBUG
-            printf("GUI message map is full\n");
-#endif
+        /* set line number */
+        translation->lineNumber = lineNumber;
+
+        /* check for = in the key and make sure we have more than just an = */
+        setter = strstr(key, "=");
+        if (setter != NULL && strlen(setter) > 2) {
+            /* look at the setter to see if it is a format specifier */
+            if (setter[1] == '%') {
+                /* we have a setter so remove the specifier from the key */
+                safe_strncpy(translation->key, key, setter - key + 2);
+                switch (setter[2]) {
+                case 's':
+                    translation->fmt_spec = SPEC_STRING; break;
+                case 'd':
+                    translation->fmt_spec = SPEC_INTEGER; break;
+                }
+                /* we need to find the format specifier */
+            } else {
+                /* the setter is a string so just copy the full key */
+                safe_strncpy(translation->key, key, strlen(key));
+            }
         } else {
-            queue.gui_map[gui_index] = trans;
-            gui_index++;
-        } break;
-    case FROM_MICRO:
-        if (micro_index >= MAX_MSG_MAP_SIZE) {
-#ifdef DEBUG
-            printf("Micro message map is full\n");
-#endif
-        } else {
-            queue.micro_map[micro_index] = trans;
-            micro_index++;
-        } break;
+            /* copy over full key */
+            safe_strncpy(translation->key, key, strlen(key));
+        }
+
+        /* copy the message over */
+        snprintf(translation->msg, sizeof(translation->msg), "%s\n", message);
+
+        /* add message to map */
+        const char *mapName = 0;
+        struct rbtree *map = 0;
+        switch (*origin) {
+        case FROM_GUI:
+            mapName = "GUI";
+            map = &state->guiTranslationMap;
+            break;
+
+        case FROM_MICRO:
+            mapName = "micro";
+            map = &state->microTranslationMap;
+            break;
+        }
+        const struct rbtree_node *ret = rbtree_insert(&translation->node, map);
+        if (ret != 0) {
+            const struct translate_msg *originalNode = rbtree_container_of(ret,
+                struct translate_msg, node);
+            fprintf(stderr, "translation for key \"%s\" on line %d in %s map "
+                "already defined on line %d.\n", key, lineNumber, mapName,
+                originalNode->lineNumber);
+        }
     }
 }
 
+/**
+ * Provides a translated message out from an input line. If the key part of the 
+ * input message matches a key in the specified tree, the message from the map 
+ * is substituted.  If no match is found, then the default message (if defined) 
+ * is returned.  If the default message is zero length, the input message is 
+ * returned, unchanged, in the output message. 
+ * 
+ * @param inMsg the message to be translated
+ * @param outMsg the translated message
+ * @param outMsgSize the number of characters available at outMsg
+ * @param map the map to search for the message key
+ * @param defaultMsg the message to use as default if the map doesn't have a 
+ *                   match
+ */
 static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
-    int index, struct translate_msg* map, struct translate_msg def)
+    const struct rbtree *map, const char *defaultMsg)
 {
-    int i;
-    //const int len = strlen(msg);
     char *setter, *end_msg;
     int value;
     Boolean has_value = FALSE;
@@ -221,7 +318,7 @@ static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
     }
 
     /* if we don't have any mappings bail */
-    if (index == 0) {
+    if (rbtree_first(map) == 0) {
         safe_strncpy(outMsg, inMsg, outMsgSize);
         return;
     }
@@ -246,69 +343,118 @@ static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
         has_value = TRUE;
     }
 
-    /* search our lists for the key */
-    for (i = 0; i < index; i++) {
-        if (strcmp(message, map[i].key) == 0) {
+    /* look for the key in the map */
+    struct translate_msg searchKey;
+    strncpy(searchKey.key, message, sizeof(searchKey.key));
+    const struct rbtree_node *node = rbtree_lookup(&searchKey.node, map);
+    if (node == 0) {
+        /* not found; use the default */
+        if (strlen(defaultMsg) > 0) {
 #ifdef DEBUG
-            printf("found key %s returning msg %s\n", map[i].key, map[i].msg);
+            printf("sending default message\n");
 #endif
-            if (has_value) {
-                switch (map[i].fmt_spec) {
-                case SPEC_INTEGER:
-                    value = atoi(end_msg);
-                    sprintf(outMsg, map[i].msg, value);
-                    break;
-
-                case SPEC_STRING:
-                    sprintf(outMsg, map[i].msg, end_msg);
-                    break;
-
-                case SPEC_NONE:
-                default:
-                    /* TODO: can we even get here? */
-                    strcpy(outMsg, map[i].msg);
-                    break;
-                }
-            } else {
-                strcpy(outMsg, map[i].msg);
-            }
-            return;
+            sprintf(outMsg, defaultMsg, tmp);
+        } else {
+#ifdef DEBUG
+            printf("sending untranslated message\n");
+#endif
+            safe_strncpy(outMsg, inMsg, outMsgSize);
         }
-    }
-
-    /* send default message */
-    if (strlen(def.msg) > 0) {
-#ifdef DEBUG
-        printf("sending default message\n");
-#endif
-        sprintf(outMsg, def.msg, tmp);
     } else {
+        /* translation found in map, format outMsg accordingly */
+        const struct translate_msg *translation =
+            rbtree_container_of(node, struct translate_msg, node);
 #ifdef DEBUG
-        printf("sending untranslated message\n");
+        printf("found key %s returning msg %s",
+            translation->key, translation->msg);
 #endif
-        safe_strncpy(outMsg, inMsg, outMsgSize);
+
+        if (has_value) {
+            switch (translation->fmt_spec) {
+            case SPEC_INTEGER:
+                value = atoi(end_msg);
+                snprintf(outMsg, outMsgSize, translation->msg, value);
+                break;
+
+            case SPEC_STRING:
+                snprintf(outMsg, outMsgSize, translation->msg, end_msg);
+                break;
+
+            case SPEC_NONE:
+            default:
+                /* TODO: can we even get here? */
+                safe_strncpy(outMsg, translation->msg, outMsgSize);
+                break;
+            }
+        } else {
+            safe_strncpy(outMsg, translation->msg, outMsgSize);
+        }
+        return;
     }
 }
 
-void translate_gui_msg(const char* inMsg, char* outMsg, size_t outMsgSize)
+/**
+ * Translate a message from the GUI to a message to be sent to the 
+ * microcontroller. 
+ * 
+ * @param state the program's set of translations
+ * @param inMsg the message from the GUI to be translated
+ * @param outMsg a buffer into which a translated message is to be written
+ * @param outMsgSize the maximum length of the output message
+ */
+void translate_gui_msg(const TranslatorState *state, const char* inMsg,
+    char* outMsg, size_t outMsgSize)
 {
-    translate_msg(inMsg, outMsg, outMsgSize, gui_index, queue.gui_map,
-        gui_def);
+    translate_msg(inMsg, outMsg, outMsgSize, &state->guiTranslationMap,
+        state->guiDefault);
 }
 
-void translate_micro_msg(const char* inMsg, char* outMsg, size_t outMsgSize)
+/**
+ * Translate a message from the microcontroller to a message to be sent to the 
+ * GUI. 
+ * 
+ * @param state the program's set of translations
+ * @param inMsg the message from the microcontroller to be translated
+ * @param outMsg a buffer into which a translated message is to be written
+ * @param outMsgSize the maximum length of the output message
+ */
+void translate_micro_msg(const TranslatorState *state, const char* inMsg,
+    char* outMsg, size_t outMsgSize)
 {
-    translate_msg(inMsg, outMsg, outMsgSize, micro_index, queue.micro_map,
-        micro_def);
+    translate_msg(inMsg, outMsg, outMsgSize, &state->microTranslationMap,
+        state->microDefault);
 }
 
-void translate_reset_mapping(void)
+/**
+ * Removes all translations.
+ * 
+ * @param state the program's set of translations which is to be cleared to 
+ *              contain none
+ */
+void translate_reset_mapping(TranslatorState *state)
 {
-    /* reset the queue */
-    gui_index = 0;
-    micro_index = 0;
-    memset(&queue, 0, sizeof(struct translate_queue));
-    gui_def.msg[0] = '\0';
-    micro_def.msg[0] = '\0';
+    state->translationCount = 0;
+    state->guiDefault[0] = '\0';
+    state->microDefault[0] = '\0';
+    rbtree_init(&state->guiTranslationMap, compareTranslations, 0);
+    rbtree_init(&state->microTranslationMap, compareTranslations, 0);
+}
+
+/**
+ * This function is called by the red/black tree library functions during node 
+ * insertion and lookups. 
+ * 
+ * @param first one of the two nodes to be compared
+ * @param second the other node to which the first is to be compared
+ * 
+ * @return int <0 if first < second, >0 if first > second and 0 if first == 
+ *         second
+ */
+int compareTranslations(const struct rbtree_node *first,
+    const struct rbtree_node *second)
+{
+    const char *str1 = rbtree_container_of(first, struct translate_msg, node)->key;
+    const char *str2 = rbtree_container_of(second, struct translate_msg, node)->key;
+    return strcmp(str1, str2);
 }
 
