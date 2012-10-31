@@ -1,5 +1,5 @@
 package = tio-agent
-version = 1.0.0
+version = 1.0.1
 tarname = $(package)
 distdir = $(tarname)-$(version)
 
@@ -30,6 +30,8 @@ $(distdir): FORCE
 	cp src/translate_socket.c $(distdir)/src
 	cp src/unix_client.c $(distdir)/src
 	cp src/unix_server.c $(distdir)/src
+	cp src/rb.c $(distdir)/src
+	cp src/libtree.h $(distdir)/src
         
 FORCE:
 	-rm $(distdir).tar.gz > /dev/null 2>&1
