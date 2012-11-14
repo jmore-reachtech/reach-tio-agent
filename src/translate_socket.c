@@ -13,6 +13,7 @@
 #include <unistd.h>     /* Prototypes for many system calls */
 #include <errno.h>      /* Declares errno and defines error constants */
 #include <string.h>     /* Commonly used string-handling functions */
+#include <sys/fcntl.h>
 
 #include <sys/un.h>
 #include <sys/socket.h>
@@ -52,8 +53,9 @@ int tioQvSocketAccept(int serverFd, int addressFamily)
     } clientAddr;
     socklen_t clientLength = sizeof(clientAddr);
 
-    const int clientFd = accept4(serverFd, (struct sockaddr *)&clientAddr,
-        &clientLength, SOCK_NONBLOCK);
+    const int clientFd = accept(serverFd, (struct sockaddr *)&clientAddr,
+        &clientLength);
+    fcntl(clientFd, F_SETFL, O_NONBLOCK);
     if (clientFd >= 0) {
         switch (addressFamily) {
         case AF_UNIX:
