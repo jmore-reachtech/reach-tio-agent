@@ -305,7 +305,7 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
 static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
     const struct rbtree *map, const char *defaultMsg)
 {
-    char *setter, *end_msg;
+    char *setter, *end_msg = 0;
     int value;
     Boolean has_value = FALSE;
     char message[MAX_LINE_SIZE];
