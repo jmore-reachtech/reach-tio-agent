@@ -8,6 +8,9 @@
 #ifndef TRANSLATE_AGENT_H_
 #define TRANSLATE_AGENT_H_
 
+#include <syslog.h>
+#include <sys/stat.h>
+
 #ifdef TRUE
 #undef TRUE
 #endif
@@ -35,6 +38,11 @@ void tioSioSocketWrite(int sioSocketfd, char *buf);
 /* functions exported from die_with_message.c */
 void dieWithSystemMessage(const char *msg);
 
+/* functions exported from logmsg.c */
+void LogOpen(const char *ident, int logToSyslog, const char *logFilePath,
+    int verboseFlag);
+void LogMsg(int level, const char *fmt, ...);
+
 /* qml-viewer should use these same socket specifications */
 #define	TIO_DEFAULT_AGENT_PORT 7885
 #define TIO_AGENT_UNIX_SOCKET "/tmp/tioSocket"
@@ -43,9 +51,6 @@ void dieWithSystemMessage(const char *msg);
 /* these are presumeably the same as in sio_agent.h */
 #define SIO_DEFAULT_AGENT_PORT 7880
 #define SIO_AGENT_UNIX_SOCKET "/tmp/sioSocket"
-
-/* global variables, shared among modules */
-extern int tioVerboseFlag;
 
 /* handy constants */
 #define LOCALHOST_ADDR "127.0.0.1"

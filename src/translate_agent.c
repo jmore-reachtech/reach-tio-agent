@@ -9,6 +9,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <libgen.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,9 +20,6 @@
 #include "translate_agent.h"
 #include "translate_parser.h"
 #include "read_line.h"
-
-/* global variables, shared with other modules */
-int tioVerboseFlag;
 
 static int keepGoing;
 static const char *progName;
@@ -34,19 +32,30 @@ static inline int max(int a, int b) { return (a > b) ? a : b; }
 
 int main(int argc, char** argv)
 {
-    progName = argv[0];
-
     const char *transFilePath = TIO_DEFAULT_TRANSLATION_FILE_PATH;
-
     unsigned refreshDelay = 0;   /* in seconds, 0 = disabled */
+    const char *logFilePath = 0;
+    /* 
+     * syslog isn't installed on the target so it's disabled in this program
+     * by requiring an argument to -o|--log.
+     */ 
+    int logToSyslog = 0;
     unsigned short sioPort = 0;  /* 0 means use Unix socket */
     unsigned short tioPort = 0;
     int daemonFlag = 0;
+    int verboseFlag = 0;
+
+    /* allocate memory for progName since basename() modifies it */
+    const size_t nameLen = strlen(argv[0]) + 1;
+    char arg0[nameLen];
+    memcpy(arg0, argv[0], nameLen);
+    progName = basename(arg0);
 
     while (1) {
         static struct option longOptions[] = {
             { "daemon",     no_argument,       0, 'd' },
             { "file",       required_argument, 0, 'f' },
+            { "log",        required_argument, 0, 'o' },
             { "refresh",    optional_argument, 0, 'r' },
             { "sio_port",   optional_argument, 0, 's' },
             { "tio_port",   optional_argument, 0, 't' },
@@ -54,7 +63,7 @@ int main(int argc, char** argv)
             { "help",       no_argument,       0, 'h' },
             { 0,            0, 0,  0  }
         };
-        int c = getopt_long(argc, argv, "df:r::s::t::vh?", longOptions, 0);
+        int c = getopt_long(argc, argv, "df:o:r::s::t::vh?", longOptions, 0);
 
         if (c == -1) {
             break;  // no more options to process
@@ -67,6 +76,16 @@ int main(int argc, char** argv)
 
         case 'f':
             transFilePath = optarg;
+            break;
+
+        case 'o':
+            if (optarg == 0) {
+                logToSyslog = 1;
+                logFilePath = 0;
+            } else {
+                logToSyslog = 0;
+                logFilePath = optarg;
+            }
             break;
 
         case 'r':
@@ -82,7 +101,7 @@ int main(int argc, char** argv)
             break;
 
         case 'v':
-            tioVerboseFlag = 1;
+            verboseFlag = 1;
             break;
 
         case 'h':
@@ -93,17 +112,8 @@ int main(int argc, char** argv)
         }
     }
 
-#if 0
-    if (todo) {
-        fprintf(stderr, "tio_agent: Setting device to default /tmp/tioSocket\n");
-        fprintf(stderr, "\tUse -t devname to override\n");
-    }
-
-    if (todo) {
-        fprintf(stderr, "tio_agent: Loading default translation file ./translate.txt\n");
-        fprintf(stderr, "\tUse -f filepath to override\n" );
-    }
-#endif
+    /* set up logging to syslog or file; will be STDERR not told otherwise */
+    LogOpen(progName, logToSyslog, logFilePath, verboseFlag);
 
     /* keep STDIO going for now */
     if (daemonFlag) {
@@ -121,14 +131,15 @@ int main(int argc, char** argv)
 static void tioDumpHelp()
 {
     fprintf(stderr, "usage: %s [options]\n"
-        "    where options are:\n"
-        "        -d         | --daemon             run in background\n"
-        "        -f<path>   | --file=<path>        use <file> for translations\n"
-        "        -r<delay>  | --refresh=<delay>    autorefresh translation file\n"
-        "        -s[<port>] | --sio-port=[<port>]  use TCP socket, default = %d\n"
-        "        -t[<port>] | --tio-port=[<port>]  use TCP socket, default = %d\n"
-        "        -v         | --verbose            print progress messages\n"
-        "        -h         | -?|--help            print usage information\n",
+        "  where options are:\n"
+        "    -d         | --daemon            run in background\n"
+        "    -f<path>   | --file=<path>       use <file> for translations\n"
+        "    -o<path>   | --logfile=<path>    log to file instead of stderr\n"
+        "    -r<delay>  | --refresh=<delay>   autorefresh translation file\n"
+        "    -s[<port>] | --sio-port[=<port>] use TCP socket, default = %d\n"
+        "    -t[<port>] | --tio-port[=<port>] use TCP socket, default = %d\n"
+        "    -v         | --verbose           print progress messages\n"
+        "    -h         | -? | --help         print usage information\n",
         progName, SIO_DEFAULT_AGENT_PORT, TIO_DEFAULT_AGENT_PORT);
 }
 
@@ -155,7 +166,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
         memset(&a, 0, sizeof(a));
         a.sa_handler = tioInterruptHandler;
         if (sigaction(SIGINT, &a, 0) != 0) {
-            fprintf(stderr, "sigaction() failed, errno = %d\n", errno);
+            LogMsg(LOG_ERR, "sigaction() failed, errno = %d\n", errno);
             exit(1);
         }
     }
@@ -165,7 +176,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
         tioSocketPath);
     if (listenFd < 0) {
         /* open failed, can't continue */
-        fprintf(stderr, "could not open server socket\n");
+        LogMsg(LOG_ERR, "could not open server socket\n");
         return;
     }
 
@@ -291,9 +302,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
         } /* else timeout to retry opening sio_agent socket */
     }
 
-    if (tioVerboseFlag) {
-        printf("cleaning up\n");
-    }
+    LogMsg(LOG_INFO, "cleaning up\n");
 
     if (connectedFd >= 0) {
         close(connectedFd);

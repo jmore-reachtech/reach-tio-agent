@@ -110,7 +110,7 @@ time_t loadTranslations(TranslatorState *state, const char* filePath,
     if (doReload) {
         inputFd = open(filePath, O_RDONLY);
         if (inputFd == -1) {
-            printf("error opening file %s\n", filePath);
+            LogMsg(LOG_ERR, "error opening file %s\n", filePath);
             return 0;
         }
 
@@ -129,9 +129,7 @@ time_t loadTranslations(TranslatorState *state, const char* filePath,
             dieWithSystemMessage("error closing file");
         }
 
-        if (tioVerboseFlag) {
-            printf("loaded translation file \"%s\"\n", filePath);
-        }
+        LogMsg(LOG_INFO, "loaded translation file \"%s\"\n", filePath);
     }
 
     return filestat.st_mtime;
@@ -158,7 +156,7 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
     /* if first ch is a # or / drop it */
     if (msg[0] == '#' || msg[0] == '/') {
 #ifdef DEBUG
-        printf("dropping comment: %s\n",msg);
+        LogMsg(LOG_INFO, "dropping comment on line %d: %s\n", lineNumber, msg);
 #endif
         return;
     }
@@ -223,7 +221,8 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
     if (state->translationCount >= MAX_MSG_MAP_SIZE) {
         static int errorPrinted = 0;
         if (!errorPrinted) {
-            printf("too many translation rules, maximum of %d allowed\n",
+            LogMsg(LOG_ERR,
+                "too many translation rules, maximum of %d allowed\n",
                 MAX_MSG_MAP_SIZE);
             errorPrinted = 1;
         }
@@ -281,7 +280,7 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
         if (ret != 0) {
             const struct translate_msg *originalNode = rbtree_container_of(ret,
                 struct translate_msg, node);
-            fprintf(stderr, "translation for key \"%s\" on line %d in %s map "
+            LogMsg(LOG_ERR, "translation for key \"%s\" on line %d in %s map "
                 "already defined on line %d.\n", key, lineNumber, mapName,
                 originalNode->lineNumber);
         }
@@ -351,12 +350,12 @@ static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
         /* not found; use the default */
         if (strlen(defaultMsg) > 0) {
 #ifdef DEBUG
-            printf("sending default message\n");
+            LogMsg(LOG_INFO, "sending default message\n");
 #endif
             sprintf(outMsg, defaultMsg, tmp);
         } else {
 #ifdef DEBUG
-            printf("sending untranslated message\n");
+            LogMsg(LOG_INFO, "sending untranslated message\n");
 #endif
             safe_strncpy(outMsg, inMsg, outMsgSize);
         }
@@ -365,8 +364,8 @@ static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
         const struct translate_msg *translation =
             rbtree_container_of(node, struct translate_msg, node);
 #ifdef DEBUG
-        printf("found key %s returning msg %s",
-            translation->key, translation->msg);
+        LogMsg(LOG_INFO, "found key %s returning msg %s", translation->key,
+            translation->msg);
 #endif
 
         if (has_value) {

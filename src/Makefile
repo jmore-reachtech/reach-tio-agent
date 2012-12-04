@@ -4,7 +4,8 @@ sources = die_with_message.c \
 	translate_parser.c \
 	translate_sio.c \
 	translate_socket.c \
-	rb.c
+	rb.c \
+	logmsg.c
 
 headers = read_line.h \
 	tcp_hdr.h \

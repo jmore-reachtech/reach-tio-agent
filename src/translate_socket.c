@@ -28,16 +28,12 @@ int tioQvSocketInit(unsigned short port, int *addressFamily,
 {
     int sockFd = -1;
     if (port == 0) {
-        if (tioVerboseFlag) {
-            printf("using local socket\n");
-        }
+        LogMsg(LOG_INFO, "using local socket\n");
         sockFd = createUnixSocket(socketPath);
         *addressFamily = AF_UNIX;
     } else {
         sockFd = createTCPServerSocket(port);
-        if (tioVerboseFlag) {
-            printf("using tcp socket\n");
-        }
+        LogMsg(LOG_INFO, "using tcp socket\n");
         *addressFamily = AF_INET;
     }
     return sockFd;
@@ -57,16 +53,12 @@ int tioQvSocketAccept(int serverFd, int addressFamily)
     if (clientFd >= 0) {
         switch (addressFamily) {
         case AF_UNIX:
-            if (tioVerboseFlag) {
-                printf("Handling Unix client\n");
-            }
+            LogMsg(LOG_INFO, "Handling Unix client\n");
             break;
 
         case AF_INET:
-            if (tioVerboseFlag) {
-                printf("Handling TCP client %s\n",
-                    inet_ntoa(clientAddr.inetClientAddr.sin_addr));
-            }
+            LogMsg(LOG_INFO, "Handling TCP client %s\n",
+                inet_ntoa(clientAddr.inetClientAddr.sin_addr));
             break;
 
         default:
