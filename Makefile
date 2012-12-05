@@ -32,6 +32,7 @@ $(distdir): FORCE
 	cp src/unix_server.c $(distdir)/src
 	cp src/rb.c $(distdir)/src
 	cp src/libtree.h $(distdir)/src
+	cp src/logmsg.c $(distdir)/src
         
 FORCE:
 	-rm $(distdir).tar.gz > /dev/null 2>&1
