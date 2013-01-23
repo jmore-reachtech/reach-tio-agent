@@ -1,0 +1,4 @@
+G:meter.value=%d,T:x=%d
+M:x=%d,T:meter.value=%d
+G:wakeup,T:>
+

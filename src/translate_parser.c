@@ -252,11 +252,11 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
                 /* we need to find the format specifier */
             } else {
                 /* the setter is a string so just copy the full key */
-                safe_strncpy(translation->key, key, strlen(key));
+                safe_strncpy(translation->key, key, strlen(key) + 1);
             }
         } else {
             /* copy over full key */
-            safe_strncpy(translation->key, key, strlen(key));
+            safe_strncpy(translation->key, key, strlen(key) + 1);
         }
 
         /* copy the message over */
