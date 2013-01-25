@@ -1,5 +1,5 @@
 package = tio-agent
-version = 1.0.5
+version = 1.0.6
 tarname = $(package)
 distdir = $(tarname)-$(version)
 
@@ -19,7 +19,7 @@ $(distdir): FORCE
 	cp src/die_with_message.c $(distdir)/src
 	cp src/read_line.c $(distdir)/src
 	cp src/read_line.h $(distdir)/src
-	cp src/sample.txt $(distdir)/src
+	cp src/translate.txt $(distdir)/src
 	cp src/tcp_client.c $(distdir)/src
 	cp src/tcp_hdr.h $(distdir)/src
 	cp src/translate_agent.c $(distdir)/src
