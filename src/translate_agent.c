@@ -171,19 +171,6 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
         }
     }
 
-    /* open the server socket */
-    const int listenFd = tioQvSocketInit(tioPort, &addressFamily,
-        tioSocketPath);
-    if (listenFd < 0) {
-        /* open failed, can't continue */
-        LogMsg(LOG_ERR, "could not open server socket\n");
-        return;
-    }
-
-    FD_ZERO(&currFdSet);
-    FD_SET(listenFd, &currFdSet);
-    int nfds = listenFd + 1;
-
     /* buffers for collection characters from each side */
     struct LineBuffer fromSio;
     fromSio.pos = 0;
@@ -202,17 +189,31 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
      * open a connection to it.
      */
     /* 100ms retry timeout for opening socket to sio_agent */
-    struct timeval timeout;
-    int sioFd = -1;
+    struct  timeval timeout;
+    int     sioFd       = -1;
+    int     listenFd    = -1;
+    int     nfds        = 0;
     keepGoing = 1;
     while (keepGoing) {
         /* try opening a connection to the sio_agent */
         if (sioFd < 0) {
             sioFd = tioSioSocketInit(sioPort, sioSocketPath);
             if (sioFd >= 0) {
+                FD_ZERO(&currFdSet);
                 FD_SET(sioFd, &currFdSet);
                 nfds = max(sioFd,
                     (connectedFd >= 0) ? connectedFd : listenFd) + 1;
+
+                /* open socket for qml viewer */
+                listenFd = tioQvSocketInit(tioPort, &addressFamily,
+                    tioSocketPath);
+                if (listenFd < 0) {
+                    /* open failed, can't continue */
+                    LogMsg(LOG_ERR, "could not open server socket\n");
+                    return;
+                }
+                FD_SET(listenFd, &currFdSet);
+                nfds = listenFd + 1;
             }
         }
 
@@ -291,7 +292,17 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
                     /* fall out of this loop to reopen connection to sio_agent */
                     FD_CLR(sioFd, &currFdSet);
                     sioFd = -1;
-                    nfds = ((connectedFd >= 0) ? connectedFd : listenFd) + 1;
+                    if(connectedFd >=0) {
+                        close(connectedFd);
+                    }
+                    connectedFd = -1;
+                    FD_CLR(connectedFd, &currFdSet);
+                    if(listenFd >=0) {
+                        close(listenFd);
+                    }
+                    listenFd = -1;
+                    FD_CLR(listenFd, &currFdSet);
+                    nfds = 0;
                 } else if ((readCount > 0) && (connectedFd >= 0)) {
                     char outMsg[sizeof(inMsg)];
                     translate_micro_msg(translatorState, inMsg, outMsg,
