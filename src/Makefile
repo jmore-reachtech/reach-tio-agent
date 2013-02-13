@@ -17,7 +17,6 @@ LDFLAGS=-pthread
 
 CFLAGS=-Wall
 
-
 ifeq ($(DEBUG_DEF),1)
 	DEBUG = -g -O0 -DDEBUG
 else
@@ -28,7 +27,7 @@ endif
 all: tio-agent
 
 tio-agent: $(sources) $(headers)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(DEBUG) -o $@ $(sources)
+	$(CC) -DTIO_VERSION='"$(AGENT_VERSION)"' $(CFLAGS) $(LDFLAGS) $(DEBUG) -o $@ $(sources)
 
 clean:
 	$(RM) tio-agent

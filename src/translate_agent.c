@@ -130,6 +130,8 @@ int main(int argc, char** argv)
 
 static void tioDumpHelp()
 {
+	fprintf(stderr, "TIO Agent %s \n\n",TIO_VERSION);
+	
     fprintf(stderr, "usage: %s [options]\n"
         "  where options are:\n"
         "    -d         | --daemon            run in background\n"
