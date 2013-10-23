@@ -46,7 +46,7 @@ void LogMsg(int level, const char *fmt, ...);
 /* qml-viewer should use these same socket specifications */
 #define	TIO_DEFAULT_AGENT_PORT 7885
 #define TIO_AGENT_UNIX_SOCKET "/tmp/tioSocket"
-#define TIO_DEFAULT_TRANSLATION_FILE_PATH "/application/bin/translate.txt";
+#define TIO_DEFAULT_TRANSLATION_FILE_PATH "/application/src/translate.txt";
 
 /* these are presumeably the same as in sio_agent.h */
 #define SIO_DEFAULT_AGENT_PORT 7880
