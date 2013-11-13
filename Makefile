@@ -1,5 +1,5 @@
 package = tio-agent
-version = 1.0.7
+version = 1.0.8
 tarname = $(package)
 distdir = $(tarname)-$(version)
 
