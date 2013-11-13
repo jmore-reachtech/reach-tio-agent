@@ -33,7 +33,7 @@ void tioQvSocketWrite(int socketFd, const char *buf);
 
 /* functions exported from translate_sio.c */
 int tioSioSocketInit(unsigned short port, const char *socketName);
-void tioSioSocketWrite(int sioSocketfd, char *buf);
+void tioSioSocketWrite(int sioSocketfd, const char *buf);
 
 /* functions exported from die_with_message.c */
 void dieWithSystemMessage(const char *msg);

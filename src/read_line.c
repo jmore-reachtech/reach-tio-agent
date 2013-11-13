@@ -55,7 +55,7 @@ ssize_t readLine(int fd, char *buffer, size_t n)
                 *buffer++ = ch;
             }
 
-            if (ch == '\n')
+            if (ch == '\n' || ch == '\r')
                 break;
         }
     }
@@ -94,18 +94,14 @@ int readLine2(int socketFd, char *outMsg, size_t msgSize,
                 return 0;
             }
 
-            if (buffer->store[i] == '\n') {
-                /* copy the accumulated characters including \n to outMsg */
-                bcopy(buffer->store, outMsg, ++i);
+            if (buffer->store[i] == '\n' || buffer->store[i] == '\r') {
+                /* copy the accumulated characters including \n or \r to outMsg */
+                bcopy(buffer->store, outMsg, i++);
 
-                /* nul terminate the string */
-                outMsg[i] = '\0';
+                /* nul terminate the string and get rid of the \n or \r character */
+                outMsg[i-1] = '\0';
 
-                /* take off the newline for display purposes */
-                char tmp[i];
-                bcopy(outMsg, tmp, i);
-                tmp[i - 1] = '\0';
-                LogMsg(LOG_INFO, "received \"%s\" from %s\n", tmp, end);
+                LogMsg(LOG_INFO, "received \"%s\" from %s\n", outMsg, end);
 
                 /* squish whatever may remain to the start of the store */
                 buffer->pos += cnt - i;

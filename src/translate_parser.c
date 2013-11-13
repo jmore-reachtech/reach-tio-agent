@@ -119,6 +119,9 @@ time_t loadTranslations(TranslatorState *state, const char* filePath,
 
         unsigned lineNumber = 1;
         while ((numRead = readLine(inputFd, buf, MAX_LINE_SIZE)) > 0) {
+            //Check for windows cr
+            if (buf[strlen(buf) -1] == '\r')
+                buf[strlen(buf) - 1] = 0;
             translate_add_mapping(state, buf, lineNumber++);
         }
 
@@ -149,7 +152,7 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
     char tmp[MAX_LINE_SIZE];
 
     /* check for empty buffer */
-    if (msg == NULL || *msg == '\n' || *msg == '\0') {
+    if (msg == NULL || *msg == '\n' || *msg == '\r' || *msg == '\0') {
         return;
     }
 
@@ -260,7 +263,7 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
         }
 
         /* copy the message over */
-        snprintf(translation->msg, sizeof(translation->msg), "%s\n", message);
+        snprintf(translation->msg, sizeof(translation->msg), "%s", message);
 
         /* add message to map */
         const char *mapName = 0;
@@ -311,7 +314,7 @@ static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
     char tmp[MAX_LINE_SIZE];
 
     /* check for empty message */
-    if (inMsg == 0 || *inMsg == '\n' || *inMsg == '\0') {
+    if (inMsg == 0 || *inMsg == '\n' || *inMsg == '\r' || *inMsg == '\0') {
         strncpy(outMsg, "\n", outMsgSize);
         return;
     }

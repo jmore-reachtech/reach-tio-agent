@@ -89,7 +89,7 @@ int tioSioSocketInit(unsigned short port, const char *socketName)
     return sioFd;
 }
 
-void tioSioSocketWrite(int sioSocketFd, char* buf)
+void tioSioSocketWrite(int sioSocketFd, const char* buf)
 {
     const size_t cnt = strlen(buf);
     if ((cnt > 0) && send(sioSocketFd, buf, cnt, 0) != cnt) {

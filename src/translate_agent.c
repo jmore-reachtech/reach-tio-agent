@@ -273,10 +273,11 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
                          * this is a normal message from qml-viewer, translate
                          * it and send the result to sio_agent 
                          */ 
-                        char outMsg[sizeof(inMsg)];
+                        char outMsg[READ_BUF_SIZE];
                         translate_gui_msg(translatorState, inMsg, outMsg,
                             sizeof(outMsg));
                         tioSioSocketWrite(sioFd, outMsg);
+                        tioSioSocketWrite(sioFd, "\r");
                     }
                 }
             }
@@ -306,10 +307,11 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
                     FD_CLR(listenFd, &currFdSet);
                     nfds = 0;
                 } else if ((readCount > 0) && (connectedFd >= 0)) {
-                    char outMsg[sizeof(inMsg)];
+                    char outMsg[READ_BUF_SIZE];
                     translate_micro_msg(translatorState, inMsg, outMsg,
                         sizeof(outMsg));
                     tioQvSocketWrite(connectedFd, outMsg);
+                    tioQvSocketWrite(connectedFd, "\n");
                 }
             }
         } /* else timeout to retry opening sio_agent socket */
