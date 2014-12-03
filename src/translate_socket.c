@@ -28,12 +28,12 @@ int tioQvSocketInit(unsigned short port, int *addressFamily,
 {
     int sockFd = -1;
     if (port == 0) {
-        LogMsg(LOG_INFO, "using local socket\n");
+        LogMsg(LOG_INFO, "[TIO] using local socket\n");
         sockFd = createUnixSocket(socketPath);
         *addressFamily = AF_UNIX;
     } else {
         sockFd = createTCPServerSocket(port);
-        LogMsg(LOG_INFO, "using tcp socket\n");
+        LogMsg(LOG_INFO, "[TIO] using tcp socket\n");
         *addressFamily = AF_INET;
     }
     return sockFd;
@@ -53,11 +53,11 @@ int tioQvSocketAccept(int serverFd, int addressFamily)
     if (clientFd >= 0) {
         switch (addressFamily) {
         case AF_UNIX:
-            LogMsg(LOG_INFO, "Handling Unix client\n");
+            LogMsg(LOG_INFO, "[TIO] Handling Unix client\n");
             break;
 
         case AF_INET:
-            LogMsg(LOG_INFO, "Handling TCP client %s\n",
+            LogMsg(LOG_INFO, "[TIO] Handling TCP client %s\n",
                 inet_ntoa(clientAddr.inetClientAddr.sin_addr));
             break;
 
@@ -134,6 +134,8 @@ static int createUnixSocket(const char* path)
 
 void tioQvSocketWrite(int socketFd, const char* buf)
 {
+	LogMsg(LOG_INFO, "[TIO] %s(): send buff %s\n", __FUNCTION__, buf);
+	
     const size_t cnt = strlen(buf);
     if ((cnt > 0) && send(socketFd, buf, cnt, 0) != cnt) {
         perror("send to qml-viewer socket failed");

@@ -55,7 +55,6 @@ int main(int argc, char** argv)
         static struct option longOptions[] = {
             { "daemon",     no_argument,       0, 'd' },
             { "file",       required_argument, 0, 'f' },
-            { "log",        required_argument, 0, 'o' },
             { "refresh",    optional_argument, 0, 'r' },
             { "sio_port",   optional_argument, 0, 's' },
             { "tio_port",   optional_argument, 0, 't' },
@@ -76,16 +75,6 @@ int main(int argc, char** argv)
 
         case 'f':
             transFilePath = optarg;
-            break;
-
-        case 'o':
-            if (optarg == 0) {
-                logToSyslog = 1;
-                logFilePath = 0;
-            } else {
-                logToSyslog = 0;
-                logFilePath = optarg;
-            }
             break;
 
         case 'r':
@@ -136,7 +125,6 @@ static void tioDumpHelp()
         "  where options are:\n"
         "    -d         | --daemon            run in background\n"
         "    -f<path>   | --file=<path>       use <file> for translations\n"
-        "    -o<path>   | --logfile=<path>    log to file instead of stderr\n"
         "    -r<delay>  | --refresh=<delay>   autorefresh translation file\n"
         "    -s[<port>] | --sio-port[=<port>] use TCP socket, default = %d\n"
         "    -t[<port>] | --tio-port[=<port>] use TCP socket, default = %d\n"
@@ -168,7 +156,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
         memset(&a, 0, sizeof(a));
         a.sa_handler = tioInterruptHandler;
         if (sigaction(SIGINT, &a, 0) != 0) {
-            LogMsg(LOG_ERR, "sigaction() failed, errno = %d\n", errno);
+            LogMsg(LOG_ERR, "[TIO] sigaction() failed, errno = %d\n", errno);
             exit(1);
         }
     }
@@ -211,7 +199,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
                     tioSocketPath);
                 if (listenFd < 0) {
                     /* open failed, can't continue */
-                    LogMsg(LOG_ERR, "could not open server socket\n");
+                    LogMsg(LOG_ERR, "[TIO] could not open server socket\n");
                     return;
                 }
                 FD_SET(listenFd, &currFdSet);
@@ -317,7 +305,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
         } /* else timeout to retry opening sio_agent socket */
     }
 
-    LogMsg(LOG_INFO, "cleaning up\n");
+    LogMsg(LOG_INFO, "[TIO] cleaning up\n");
 
     if (connectedFd >= 0) {
         close(connectedFd);
