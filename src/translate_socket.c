@@ -134,7 +134,7 @@ static int createUnixSocket(const char* path)
 
 void tioQvSocketWrite(int socketFd, const char* buf)
 {
-	LogMsg(LOG_INFO, "[TIO] %s(): send buff %s\n", __FUNCTION__, buf);
+	LogMsg(LOG_INFO, "[TIO] sending => \"%s\"\n", buf);
 	
     const size_t cnt = strlen(buf);
     if ((cnt > 0) && send(socketFd, buf, cnt, 0) != cnt) {

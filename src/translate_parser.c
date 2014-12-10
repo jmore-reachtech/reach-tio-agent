@@ -361,7 +361,7 @@ static void translate_msg(const char* inMsg, char* outMsg, size_t outMsgSize,
         const struct translate_msg *translation =
             rbtree_container_of(node, struct translate_msg, node);
 
-        LogMsg(LOG_INFO, "[TIO] found key %s returning msg %s", translation->key,
+        LogMsg(LOG_INFO, "[TIO] found key => \"%s\"; returning => \"%s\"\n", translation->key,
             translation->msg);
 
         if (has_value) {

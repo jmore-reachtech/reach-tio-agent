@@ -98,10 +98,9 @@ int readLine2(int socketFd, char *outMsg, size_t msgSize,
                 /* copy the accumulated characters including \n or \r to outMsg */
                 bcopy(buffer->store, outMsg, i++);
 
+				LogMsg(LOG_INFO, "[TIO] received => \"%s\"; from %s\n", outMsg, end);
                 /* nul terminate the string and get rid of the \n or \r character */
                 outMsg[i-1] = '\0';
-
-                LogMsg(LOG_INFO, "[TIO] received \"%s\" from %s\n", outMsg, end);
 
                 /* squish whatever may remain to the start of the store */
                 buffer->pos += cnt - i;
