@@ -156,7 +156,11 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
         memset(&a, 0, sizeof(a));
         a.sa_handler = tioInterruptHandler;
         if (sigaction(SIGINT, &a, 0) != 0) {
-            LogMsg(LOG_ERR, "[TIO] sigaction() failed, errno = %d\n", errno);
+            LogMsg(LOG_ERR, "[TIO] sigaction(SIGINT) failed, errno = %d\n", errno);
+            exit(1);
+        }
+        if (sigaction(SIGTERM, &a, 0) != 0) {
+            LogMsg(LOG_ERR, "[TIO] sigaction(SIGTERM) failed, errno = %d\n", errno);
             exit(1);
         }
     }
@@ -316,5 +320,16 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
     if (sioFd >= 0) {
         close(sioFd);
     }
+    
+    if (tioPort == 0) {
+        /* best effort removal of socket */
+        const int rv = unlink(tioSocketPath);
+        if (rv == 0) {
+            LogMsg(LOG_INFO, "[TIO] socket file %s unlinked\n", tioSocketPath);
+        } else {
+            LogMsg(LOG_INFO, "[TIO] socket file %s unlink failed\n", tioSocketPath);
+        }
+    }
+
 }
 
