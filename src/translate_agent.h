@@ -20,7 +20,7 @@
 #endif
 
 #define BACKLOG 5
-#define READ_BUF_SIZE 2048
+#define READ_BUF_SIZE 4096
 #define DEFAULT_REFRESH_DELAY 1
 
 struct LineBuffer;

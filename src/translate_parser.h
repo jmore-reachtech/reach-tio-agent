@@ -14,7 +14,7 @@
 #include "libtree.h"
 
 #define MAX_MSG_MAP_SIZE 400
-#define MAX_LINE_SIZE 2048
+#define MAX_LINE_SIZE 4096
 
 #define FROM_GUI 'G'
 #define FROM_MICRO 'M'
