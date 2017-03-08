@@ -20,6 +20,10 @@ void translate_add_mapping(TranslatorState *state, const char*,
 void translate_reset_mapping(TranslatorState *state);
 int compareTranslations(const struct rbtree_node *first,
     const struct rbtree_node *second);
+void allocateTranslations(TranslatorState *state, const unsigned short mapSize);
+void deallocateTranslations(TranslatorState *state);
+
+int maxMappingSize = -1;
 
 /**
  * This structure is a single record of information which is placed into a
@@ -50,7 +54,7 @@ struct TranslatorState
     char microDefault[MAX_LINE_SIZE];
 
     /* the pool of translation structures that will be put into the maps */
-    struct translate_msg translations[MAX_MSG_MAP_SIZE];
+    struct translate_msg* translations;
 
     /* the map of translation messages for messages received from the GUI */
     struct rbtree guiTranslationMap;
@@ -68,7 +72,7 @@ struct TranslatorState
  */
 TranslatorState *GetTranslatorState()
 {
-    static TranslatorState state;
+    static TranslatorState state;        
     return &state;
 }
 
@@ -219,12 +223,12 @@ void translate_add_mapping(TranslatorState *state, const char *msg,
     }
 
     /* allocate a translation from array of them if any left */
-    if (state->translationCount >= MAX_MSG_MAP_SIZE) {
+    if (state->translationCount >= maxMappingSize) {
         static int errorPrinted = 0;
         if (!errorPrinted) {
             LogMsg(LOG_ERR,
                 "[TIO] too many translation rules, maximum of %d allowed\n",
-                MAX_MSG_MAP_SIZE);
+                maxMappingSize);
             errorPrinted = 1;
         }
     } else {
@@ -453,3 +457,28 @@ int compareTranslations(const struct rbtree_node *first,
     return strcmp(str1, str2);
 }
 
+/**
+ * Allocates memory for a variable number of translations.
+ *
+ * @param state the program's set of translations
+ * @param mapSize number to set total mappings in the translate file
+ *
+ */
+void allocateTranslations(TranslatorState *state, const unsigned short mapSize)
+{
+    state->translations = malloc(mapSize * sizeof(struct translate_msg));
+    maxMappingSize = mapSize;
+    LogMsg(LOG_INFO, "[TIO] translations size set to %d\n", maxMappingSize);
+}
+
+/**
+ * Free memory for translations.
+ *
+ * @param state the program's set of translations
+ *
+ */
+void deallocateTranslations(TranslatorState *state)
+{
+    free(state->translations);
+    LogMsg(LOG_INFO, "[TIO] translations freed\n");
+}
