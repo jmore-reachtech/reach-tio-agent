@@ -156,7 +156,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
     int addressFamily = 0;
 
     TranslatorState *translatorState = GetTranslatorState();
-    allocateTranslations(translatorState, mapSize);
+    initTranslations(translatorState, mapSize);
 
     {
         /* install a signal handler to remove the socket file */
@@ -317,7 +317,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
     }
 
     LogMsg(LOG_INFO, "[TIO] cleaning up\n");
-    deallocateTranslations(translatorState);
+    freeTranslations(translatorState);
 
     if (connectedFd >= 0) {
         close(connectedFd);

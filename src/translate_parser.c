@@ -20,8 +20,8 @@ void translate_add_mapping(TranslatorState *state, const char*,
 void translate_reset_mapping(TranslatorState *state);
 int compareTranslations(const struct rbtree_node *first,
     const struct rbtree_node *second);
-void allocateTranslations(TranslatorState *state, const unsigned short mapSize);
-void deallocateTranslations(TranslatorState *state);
+void initTranslations(TranslatorState *state, const unsigned short mapSize);
+void freeTranslations(TranslatorState *state);
 
 int maxMappingSize = -1;
 
@@ -458,13 +458,13 @@ int compareTranslations(const struct rbtree_node *first,
 }
 
 /**
- * Allocates memory for a variable number of translations.
+ * This function allocates memory for a variable number of translations.
  *
  * @param state the program's set of translations
  * @param mapSize number to set total mappings in the translate file
  *
  */
-void allocateTranslations(TranslatorState *state, const unsigned short mapSize)
+void initTranslations(TranslatorState *state, const unsigned short mapSize)
 {
     state->translations = malloc(mapSize * sizeof(struct translate_msg));
     maxMappingSize = mapSize;
@@ -472,13 +472,13 @@ void allocateTranslations(TranslatorState *state, const unsigned short mapSize)
 }
 
 /**
- * Free memory for translations.
+ * This function frees translations from memory.
  *
  * @param state the program's set of translations
  *
  */
-void deallocateTranslations(TranslatorState *state)
+void freeTranslations(TranslatorState *state)
 {
     free(state->translations);
-    LogMsg(LOG_INFO, "[TIO] translations freed\n");
+    LogMsg(LOG_INFO, "[TIO] translations free()\n");
 }
