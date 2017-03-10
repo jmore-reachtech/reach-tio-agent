@@ -3,7 +3,7 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-VERSION = 1.0.9
+VERSION = 1.1.1
 # add #define for the version
 DEFINES += TIO_VERSION=\\\"$$VERSION\\\"
 

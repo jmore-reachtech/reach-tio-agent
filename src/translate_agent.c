@@ -27,7 +27,7 @@ static const char *progName;
 static void tioDumpHelp();
 static void tioAgent(const char *translatePath, unsigned refreshDelay,
     unsigned short tioPort, const char *tioSocketPath, unsigned short sioPort,
-    const char *sioSocketPath);
+    const char *sioSocketPath, const unsigned short mapSize);
 static inline int max(int a, int b) { return (a > b) ? a : b; }
 
 int main(int argc, char** argv)
@@ -44,6 +44,7 @@ int main(int argc, char** argv)
     unsigned short tioPort = 0;
     int daemonFlag = 0;
     int verboseFlag = 0;
+    unsigned short mapSize = MAX_MSG_MAP_SIZE;
 
     /* allocate memory for progName since basename() modifies it */
     const size_t nameLen = strlen(argv[0]) + 1;
@@ -55,6 +56,7 @@ int main(int argc, char** argv)
         static struct option longOptions[] = {
             { "daemon",     no_argument,       0, 'd' },
             { "file",       required_argument, 0, 'f' },
+            { "map-size",   optional_argument, 0, 'm' },
             { "refresh",    optional_argument, 0, 'r' },
             { "sio_port",   optional_argument, 0, 's' },
             { "tio_port",   optional_argument, 0, 't' },
@@ -62,7 +64,7 @@ int main(int argc, char** argv)
             { "help",       no_argument,       0, 'h' },
             { 0,            0, 0,  0  }
         };
-        int c = getopt_long(argc, argv, "df:o:r::s::t::vh?", longOptions, 0);
+        int c = getopt_long(argc, argv, "df:m:r::s::t::vh?", longOptions, 0);
 
         if (c == -1) {
             break;  // no more options to process
@@ -75,6 +77,10 @@ int main(int argc, char** argv)
 
         case 'f':
             transFilePath = optarg;
+            break;
+
+        case 'm':
+            mapSize = (optarg == 0) ? MAX_MSG_MAP_SIZE : atoi(optarg);
             break;
 
         case 'r':
@@ -112,7 +118,7 @@ int main(int argc, char** argv)
     }
 
     tioAgent(transFilePath, refreshDelay, tioPort, TIO_AGENT_UNIX_SOCKET,
-        sioPort, SIO_AGENT_UNIX_SOCKET);
+        sioPort, SIO_AGENT_UNIX_SOCKET, mapSize);
 
     exit(EXIT_SUCCESS);
 }
@@ -123,13 +129,14 @@ static void tioDumpHelp()
 	
     fprintf(stderr, "usage: %s [options]\n"
         "  where options are:\n"
-        "    -d         | --daemon            run in background\n"
-        "    -f<path>   | --file=<path>       use <file> for translations\n"
-        "    -r<delay>  | --refresh=<delay>   autorefresh translation file\n"
-        "    -s[<port>] | --sio-port[=<port>] use TCP socket, default = %d\n"
-        "    -t[<port>] | --tio-port[=<port>] use TCP socket, default = %d\n"
-        "    -v         | --verbose           print progress messages\n"
-        "    -h         | -? | --help         print usage information\n",
+        "    -d            | --daemon               run in background\n"
+        "    -f<path>      | --file=<path>          use <file> for translations\n"
+        "    -m<map size>  | --map-size=<map-size>  used for translations\n"
+        "    -r<delay>     | --refresh=<delay>      autorefresh translation file\n"
+        "    -s[<port>]    | --sio-port[=<port>]    use TCP socket, default = %d\n"
+        "    -t[<port>]    | --tio-port[=<port>]    use TCP socket, default = %d\n"
+        "    -v            | --verbose              print progress messages\n"
+        "    -h            | -? | --help            print usage information\n",
         progName, SIO_DEFAULT_AGENT_PORT, TIO_DEFAULT_AGENT_PORT);
 }
 
@@ -140,7 +147,7 @@ static void tioInterruptHandler(int sig)
 
 static void tioAgent(const char *translatePath, unsigned refreshDelay,
     unsigned short tioPort, const char *tioSocketPath, unsigned short sioPort,
-    const char *sioSocketPath)
+    const char *sioSocketPath, const unsigned short mapSize)
 {
     fd_set currFdSet;
     int connectedFd = -1;  /* not currently connected */
@@ -149,6 +156,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
     int addressFamily = 0;
 
     TranslatorState *translatorState = GetTranslatorState();
+    initTranslations(translatorState, mapSize);
 
     {
         /* install a signal handler to remove the socket file */
@@ -242,8 +250,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
             /* see about auto reloading the translation file */
             if ((refreshDelay > 0) &&
                 (time(0) > (lastCheckTime + refreshDelay))) {
-                lastModTime = loadTranslations(translatorState, translatePath,
-                    lastModTime);
+                lastModTime = loadTranslations(translatorState, translatePath, lastModTime);
                 lastCheckTime = time(0);
             }
 
@@ -310,6 +317,7 @@ static void tioAgent(const char *translatePath, unsigned refreshDelay,
     }
 
     LogMsg(LOG_INFO, "[TIO] cleaning up\n");
+    freeTranslations(translatorState);
 
     if (connectedFd >= 0) {
         close(connectedFd);
